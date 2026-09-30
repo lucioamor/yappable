@@ -479,6 +479,8 @@ function populateElevenVoices(voices) {
   for (const key of PLATFORM_VOICE_KEYS) {
     const platform = $(key);
     platform.replaceChildren();
+    platform.disabled = false;
+    platform.title = "ElevenLabs voice for this AI";
     const fallback = document.createElement("option");
     fallback.value = "";
     fallback.textContent = "Use default ElevenLabs voice";
@@ -518,6 +520,20 @@ async function fetchElevenVoices() {
   }
 }
 
+// Without an ElevenLabs key the per-AI voice pickers have nothing to offer: say so
+// instead of showing empty dropdowns.
+function showPlatformVoicesOff() {
+  for (const key of PLATFORM_VOICE_KEYS) {
+    const platform = $(key);
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Native voice";
+    platform.replaceChildren(option);
+    platform.disabled = true;
+    platform.title = "Add an ElevenLabs key in ⚙ to pick a voice for this AI.";
+  }
+}
+
 function loadElevenVoices(force) {
   if (!cfg.elevenKey) {
     const sel = $("elevenVoiceId");
@@ -525,6 +541,7 @@ function loadElevenVoices(force) {
     option.value = "";
     option.textContent = "— configure the API key (⚙) —";
     sel.replaceChildren(option);
+    showPlatformVoicesOff();
     return;
   }
   chrome.storage.local.get(VOICE_CACHE_KEY, async (st) => {
