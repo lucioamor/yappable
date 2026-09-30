@@ -1,0 +1,11 @@
+{
+  "name": "yappable-for-your-ai",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "qa": "node scripts/qa.js",
+    "package": "node scripts/package.js",
+    "check-shared": "node scripts/check-shared.js"
+  }
+}

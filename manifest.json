@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Yappable: read ChatGPT, Claude, Gemini & Grok replies aloud",
+  "version": "1.0.0",
+  "description": "Hear every AI reply aloud: ChatGPT, Claude, Gemini, Grok. One voice at a time across tabs. Native or ElevenLabs voices.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://grok.com/*",
+    "https://api.elevenlabs.io/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*", "https://chatgpt.com/*", "https://chat.openai.com/*", "https://gemini.google.com/*", "https://grok.com/*"],
+      "js": ["src/media-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://claude.ai/*", "https://chatgpt.com/*", "https://chat.openai.com/*", "https://gemini.google.com/*", "https://grok.com/*"],
+      "js": ["src/chat-adapters.js", "src/stats.js", "src/player-ui.js", "src/chat-narrator.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Yappable: read AI replies aloud",
+    "default_popup": "popup/popup.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

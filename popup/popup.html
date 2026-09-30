@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Yappable</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0b;
+      --surface: #111113;
+      --surface-2: #18181b;
+      --border: #27272a;
+      --border-soft: #1f1f23;
+      --border-faint: #1c1c1f;
+      --accent: #f59e0b;
+      --accent-soft: rgba(245, 158, 11, 0.1);
+      --accent-line: rgba(245, 158, 11, 0.45);
+      --val: #facc15;
+      --ok: #86efac;
+      --ok-strong: #22c55e;
+      --danger: #f87171;
+      --txt: #fafafa;
+      --txt-2: #d4d4d8;
+      --muted: #a1a1aa;
+      --muted-2: #71717a;
+      --muted-3: #52525b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      width: 360px; margin: 0; padding: 14px;
+      font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg); color: #e5e7eb;
+    }
+    label[title], input[title], button[title], select[title], .switch[title] { cursor: help; }
+
+    select, textarea, input[type="text"], input[type="password"], input[type="number"] {
+      width: 100%; min-height: 32px; padding: 7px 9px;
+      background: var(--surface-2); color: var(--txt); border: 1px solid var(--border); border-radius: 8px;
+      font: inherit;
+    }
+    select { color: var(--txt-2); cursor: pointer; }
+    textarea {
+      display: block; min-height: 60px; resize: vertical;
+      font: 11px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+      background: var(--surface); color: var(--muted);
+    }
+    input[type="range"] { width: 100%; cursor: ew-resize; margin: 0; accent-color: var(--accent); }
+    input:disabled { opacity: .45; cursor: not-allowed; }
+    select:focus-visible, textarea:focus-visible,
+    input[type="text"]:focus-visible, input[type="password"]:focus-visible, input[type="number"]:focus-visible {
+      outline: 2px solid rgba(245, 158, 11, 0.55); outline-offset: 2px;
+    }
+
+    /* ── header ─────────────────────────────────────── */
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin: 0 0 12px; border-bottom: 1px solid var(--border-soft); }
+    .header-brand { display: flex; flex-direction: column; gap: 2px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    /* compact local country-code pill in topbar */
+    .lang-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 5px 9px; cursor: pointer;
+      background: var(--surface-2); color: var(--txt-2); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-weight: 600; }
+    .lang-pill:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .lang-pill::after { content: "▾"; color: var(--muted-2); font-size: 11px; }
+    .lang-pill .flag-pill { width: 24px; min-width: 24px; }
+    #langDrop .dd-list { left: auto; right: 0; width: 220px; }
+    h1 { margin: 0; color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 0.2em; line-height: 1.1; text-transform: uppercase; cursor: default; user-select: none; }
+    .status-line { color: var(--muted-3); font-size: 10px; letter-spacing: 0.03em; }
+
+    /* ── generic buttons ────────────────────────────── */
+    button {
+      min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 7px 10px; cursor: pointer;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--txt);
+      font: inherit; font-weight: 600;
+      transition: background .15s, border-color .15s, color .15s, transform .1s; will-change: transform;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    button:active { transform: scale(0.97); }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    button:focus-visible { outline: 2px solid rgba(245, 158, 11, 0.55); outline-offset: 2px; }
+
+    .icon-btn { width: 28px; min-width: 28px; min-height: 28px; padding: 0; border-color: transparent; background: transparent; color: var(--muted-3); }
+    .icon-btn:hover { border-color: transparent; background: transparent; color: var(--muted); }
+    .icon-btn.gear { width: 34px; min-width: 34px; min-height: 34px; font-size: 18px; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+    .icon-btn.gear:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+    .icon-btn.repeat-btn { width: 34px; min-width: 34px; min-height: 34px; font-size: 16px; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+    .icon-btn.repeat-btn:hover { color: var(--ok-strong); border-color: var(--ok-strong); background: rgba(34,197,94,.1); }
+    .icon-btn.stop-btn { width: 34px; min-width: 34px; min-height: 34px; font-size: 13px; color: var(--muted-3); border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+    .icon-btn.stop-btn:hover { color: var(--muted); border-color: var(--border); background: var(--surface-2); }
+    .icon-btn.stop-btn.live { color: var(--danger); border-color: var(--danger); background: rgba(248,113,113,.12); }
+    .icon-btn.stop-btn.live:hover { color: #fff; border-color: var(--danger); background: rgba(248,113,113,.28); }
+
+    .field { display: grid; grid-template-columns: 108px 1fr 46px; align-items: center; gap: 8px; margin: 7px 0; }
+    .field.nv { grid-template-columns: 108px 1fr; }
+    .field > label { margin: 0; font-weight: 500; font-size: 12px; color: var(--txt-2); }
+    .field .rngval { text-align: right; color: var(--val); font-variant-numeric: tabular-nums; font-size: 12px; }
+
+    /* ── hero: on/off (whole-session action) ─────────── */
+    .control { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.025); }
+    .control.hero { padding: 13px 14px; transition: border-color .2s, box-shadow .2s; }
+    .control.hero.on { border-color: rgba(34,197,94,.5); box-shadow: inset 0 0 0 1px rgba(34,197,94,.1), 0 6px 20px -10px rgba(34,197,94,.4); }
+
+    /* ── narr-off: grey + lock everything below hero ─── */
+    .narr-section {
+      transition: opacity .2s, filter .2s;
+    }
+    body.narr-off .narr-section {
+      opacity: .32;
+      filter: grayscale(.75) saturate(.3);
+      pointer-events: none;
+      user-select: none;
+    }
+    body.narr-off #engineBadge {
+      opacity: .32;
+      filter: grayscale(.75) saturate(.3);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .master { display: flex; align-items: center; gap: 10px; }
+    .master label.cap { margin: 0; font-weight: 700; font-size: 14px; flex: 1; color: var(--txt); }
+    .master .state { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .master .state.on { color: var(--ok); }
+    .master .state.off { color: var(--danger); }
+    /* engine indicator chip in hero — click to configure */
+    .enginebadge { min-height: 24px; padding: 3px 9px; font-size: 11px; font-weight: 700; letter-spacing: .02em;
+      color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: 999px; }
+    .enginebadge:hover { background: rgba(245, 158, 11, 0.16); border-color: var(--accent); color: var(--accent); }
+
+    /* ── switch (track + thumb), amber on ───────────── */
+    .switch { display: flex; align-items: center; gap: 8px; }
+    .switch input[type="checkbox"] {
+      width: 30px; height: 16px; appearance: none; background: #3f3f46; border: 0; border-radius: 999px;
+      position: relative; cursor: pointer; transition: background .15s; flex: none;
+    }
+    .switch input[type="checkbox"]:checked { background: var(--accent); }
+    .switch input[type="checkbox"]::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
+      background: var(--muted); border-radius: 50%; transition: transform .18s ease, background .15s;
+    }
+    .switch input[type="checkbox"]:checked::after { transform: translateX(14px); background: var(--bg); }
+    .switch input[type="checkbox"]:focus-visible { outline: 2px solid rgba(245, 158, 11, 0.55); outline-offset: 2px; }
+
+    /* ── voice engine: segmented ─────────────────────── */
+    .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .seg { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 6px; cursor: pointer;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-weight: 600; font-size: 12px; color: var(--muted); transition: all .12s; }
+    .seg:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .seg.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+    .seg .em { font-size: 15px; }
+
+    /* sounds: toggle + mini volume, all inline */
+    .soundgroup { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 10px; padding: 6px 12px 11px; box-shadow: inset 0 1px 0 rgba(255,255,255,.025); margin: 0 0 12px; }
+    .soundline { display: grid; grid-template-columns: 1fr 84px 30px auto; align-items: center; gap: 8px; margin: 9px 0 0; }
+    .soundline:first-child { margin-top: 2px; }
+    .soundline > label { margin: 0; font-weight: 500; font-size: 12px; color: var(--txt-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .minivol { width: 84px; cursor: ew-resize; }
+    .rngval.mini { font-size: 10.5px; color: var(--muted); text-align: right; }
+    /* soundline without a volume slider (e.g. waveform toggle) */
+    .soundline-solo { display: flex; align-items: center; gap: 10px; margin: 9px 0 0; }
+    .soundline-solo > label { margin: 0; font-weight: 500; font-size: 12px; color: var(--txt-2); flex: 1; }
+
+    /* ── narration mode ──────────────────────────────── */
+    .narrlist { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 12px; }
+    .narrlist label[title] { cursor: pointer; }
+    .narrlist input { position: absolute; opacity: 0; pointer-events: none; }
+    .narropt { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 8px; cursor: pointer;
+      background: var(--surface); border: 1px solid var(--border-faint); border-radius: 10px; transition: all .12s; }
+    .narropt:hover { border-color: var(--border); }
+    .narropt .em { font-size: 15px; }
+    .narropt .nm { font-weight: 600; font-size: 12px; color: var(--txt); }
+    .narropt .dflt { font-size: 8px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--muted-2);
+      background: var(--surface-2); border: 1px solid var(--border-faint); border-radius: 999px; padding: 1px 5px; }
+    .narrlist input:checked + .narropt { border-color: var(--accent-line); background: var(--accent-soft); }
+    .narrlist input:checked + .narropt .nm { color: var(--accent); }
+    .narrlist input:checked + .narropt .dflt { color: var(--accent); border-color: var(--accent-line); }
+    .narrlist input:focus-visible + .narropt { outline: 2px solid rgba(245, 158, 11, 0.55); outline-offset: 2px; }
+
+    /* ── voice panel (driven by segmented, no tabs) ──── */
+    .vpanel { margin-top: 12px; }
+    .vpanel[hidden] { display: none; }
+
+    fieldset { border: 0; margin: 0; padding: 0; }
+
+    /* ── collapsible config groups ───────────────────── */
+    details.cfg { margin-top: 10px; border: 1px solid var(--border-faint); border-radius: 10px; background: var(--surface); }
+    details.cfg > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 9px 11px; user-select: none; }
+    details.cfg > summary::-webkit-details-marker { display: none; }
+    details.cfg > summary::before { content: "▸"; color: var(--muted-3); transition: transform .15s; flex: none; }
+    details.cfg[open] > summary::before { transform: rotate(90deg); }
+    details.cfg > summary:hover .cfg-ttl { color: var(--txt); }
+    .cfg-ttl { font-size: 11.5px; font-weight: 600; letter-spacing: .01em; color: var(--txt-2); transition: color .15s; }
+    .cfg-state { margin-left: auto; display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted-2); font-variant-numeric: tabular-nums; transition: opacity .15s; }
+    details.cfg[open] > summary .cfg-state { opacity: .4; }
+    .cfg-body { padding: 2px 11px 12px; }
+    .sumchip { opacity: .3; filter: grayscale(1); font-size: 12px; transition: opacity .15s, filter .15s; }
+    .sumchip.on { opacity: 1; filter: none; }
+
+    .btnrow { display: flex; gap: 8px; margin-top: 12px; }
+    button.act { flex: 1; }
+    button.act.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    button.act.primary:hover { background: #fbbf24; border-color: #fbbf24; color: var(--bg); }
+    button.ghost { background: var(--surface-2); color: var(--txt); }
+    button.mini { flex: none; padding: 5px 9px; font-size: 12px; min-height: 28px; }
+    small { color: var(--muted-2); font-size: 11px; }
+    #msg { margin-top: 8px; min-height: 14px; color: var(--val); font-size: 11px; }
+
+    .voicerow { display: grid; grid-template-columns: 108px 1fr 36px; align-items: center; gap: 8px; margin: 7px 0; }
+    .voicerow > label { margin: 0; font-weight: 500; font-size: 12px; color: var(--txt-2); }
+
+    /* key status — used both standalone and inline inside .key-header */
+    .keystatus { display: flex; align-items: center; gap: 6px; }
+    .keystatus .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); flex: none; }
+    .keystatus .dot.ok { background: var(--ok-strong); }
+    .keystatus .dot.bad { background: var(--danger); }
+    .keystatus .txt { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    /* affiliate links */
+    a.affiliate { display: block; margin: 6px 0 2px; padding: 8px 10px; font-size: 11.5px; text-decoration: none;
+      color: var(--txt-2); background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: 8px; transition: background .15s, border-color .15s; }
+    a.affiliate:hover { background: rgba(245, 158, 11, 0.16); border-color: var(--accent); }
+    a.affiliate strong { color: var(--accent); font-weight: 700; }
+    a.affiliate[hidden] { display: none; }
+    .affiliate-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 2px; }
+    .affiliate-row a.affiliate { margin: 0; }
+
+    /* ── language dropdown ───────────────────────────── */
+    .dropdown { position: relative; }
+    .flag-pill { width: 28px; min-width: 28px; height: 20px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 3px; overflow: hidden; background: var(--border); color: var(--txt-2);
+      font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+    .dd-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; max-height: 240px; overflow: auto;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.5); padding: 4px; }
+    .dd-list[hidden] { display: none; }
+    .dd-opt { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; border-radius: 6px; }
+    .dd-opt:hover, .dd-opt.sel { background: var(--accent-soft); }
+    .dd-list::-webkit-scrollbar { width: 5px; }
+    .dd-list::-webkit-scrollbar-thumb { background: #2d2d31; border-radius: 8px; }
+
+    .inline { display: flex; align-items: center; gap: 8px; margin: 9px 0 0; }
+    .inline label { margin: 0; font-weight: 500; color: var(--txt-2); }
+    .inline input[type="checkbox"] { flex: none; accent-color: var(--accent); }
+
+    /* ── modal ───────────────────────────────────────── */
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: grid; place-items: center; padding: 18px; z-index: 20; }
+    .modal-bg[hidden] { display: none; }
+    .modal { position: relative; background: var(--surface); border: 1px solid #2d2d31; border-radius: 12px; padding: 16px; width: min(320px, 100%); max-height: 92vh; overflow: auto;
+      box-shadow: 0 24px 56px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.03); }
+    .modal h2 { font-size: 12px; margin: 0 4px 4px 0; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; }
+    .modal-x { position: absolute; top: 12px; right: 12px; width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; font-weight: 700;
+      color: var(--txt-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; z-index: 1; }
+    .modal-x:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+    .modal h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-2); margin: 14px 0 4px; font-weight: 600; }
+    .keyinput { display: flex; gap: 6px; }
+    .keyinput input { flex: 1; }
+    /* API key header: h3 + status inline */
+    .key-header { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; }
+    .key-header h3 { margin: 0; flex: 1; }
+    .privacy-note { background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 8px; padding: 8px 10px; font-size: 11px; color: var(--muted); line-height: 1.5; margin: 4px 0 8px; }
+    .privacy-note strong { color: var(--txt-2); }
+    .diag-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 4px 0 8px; }
+    .diag-note strong { color: var(--accent); font-weight: 700; }
+    /* seed row: random checkbox + label + number input on one line */
+    .seed-row { display: flex; align-items: center; gap: 8px; margin: 9px 0 0; }
+    .seed-row input[type="checkbox"] { flex: none; accent-color: var(--accent); }
+    .seed-row > label { flex: 1; margin: 0; font-weight: 500; color: var(--txt-2); font-size: 13px; }
+    .seed-row input[type="number"] { width: 110px; min-width: 80px; flex: none; }
+    .modal::-webkit-scrollbar { width: 5px; }
+    .modal::-webkit-scrollbar-thumb { background: #2d2d31; border-radius: 8px; }
+    .tabs { display: flex; gap: 4px; margin: -4px 0 10px; padding: 3px; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 9px; }
+    .tab { flex: 1; min-height: 26px; padding: 4px 8px; border: 0; background: transparent; color: var(--muted); font-size: 12px; }
+    .tab:hover { background: transparent; color: var(--txt-2); }
+    .tab.on { background: var(--surface-2); color: var(--accent); box-shadow: 0 0 0 1px var(--border); }
+        .platform-list { display: grid; gap: 4px; }
+    .platform-row { display: grid; grid-template-columns: 20px 62px 1fr auto; align-items: center; gap: 8px; padding: 5px 8px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--surface); }
+    .platform-row img { width: 18px; height: 18px; object-fit: contain; border-radius: 5px; }
+    .platform-row strong { color: var(--txt); font-size: 12px; }
+    .platform-row select { width: 100%; min-width: 0; margin: 0; padding: 3px 20px 3px 6px; font-size: 11px; }
+    .platform-announcement { display: grid; grid-template-columns: 42px 1fr; align-items: center; gap: 8px; margin: 0 0 8px; }
+    .platform-announcement label { margin: 0; color: var(--txt-2); font-size: 12px; font-weight: 600; }
+    .platform-announcement select { width: 100%; min-width: 0; padding: 4px 22px 4px 7px; font-size: 11px; }
+    .platform-note { margin: 8px 0 0; color: var(--muted-2); font-size: 10.5px; line-height: 1.4; }
+    .stats-line { margin-top: 12px; display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px; padding: 6px 9px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--surface); font-size: 11px; color: var(--muted-2); }
+    .stats-line b { color: var(--val); font-variant-numeric: tabular-nums; }
+    .stats-line em { margin-left: auto; font-style: normal; text-transform: uppercase; letter-spacing: .06em; font-size: 10px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="header-brand">
+      <h1 id="brandTitle">Yappable</h1>
+      <span class="status-line">Read AI replies aloud</span>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn stop-btn" id="stopBtn" title="Stop audio on every Yappable platform" aria-label="Stop audio">■</button>
+      <div class="dropdown narr-section" id="langDrop" title="Narration language (native voice and ElevenLabs).">
+        <button type="button" class="lang-pill" id="langBtn" aria-label="Narration language"></button>
+        <div class="dd-list" id="langList" hidden></div>
+      </div>
+      <button class="icon-btn gear" id="openSettings" title="API key and advanced settings.">⚙</button>
+    </div>
+  </div>
+
+  <div id="viewMain">
+  <!-- hero: on/off -->
+  <div class="control hero" id="masterCard">
+    <div class="master" title="Enable or disable reading replies aloud. Turning off stops any ongoing speech immediately.">
+      <label class="cap" for="enabled">Read replies aloud</label>
+      <button type="button" class="enginebadge" id="engineBadge" title="Voice engine — click to switch / configure."></button>
+      <span class="state" id="enabledState"></span>
+      <div class="switch"><input type="checkbox" id="enabled" /></div>
+    </div>
+  </div>
+
+  <!-- platforms -->
+  <div class="narr-section">
+    <div class="platform-announcement">
+      <label for="chatAnnouncementStyle">Intro</label>
+      <select id="chatAnnouncementStyle" title="How each AI introduces its reply">
+        <option value="concise">Concise — “Claude's reply:”</option>
+        <option value="casual">Casual — “Hi, this is Claude speaking.”</option>
+      </select>
+    </div>
+    <div class="platform-list">
+      <div class="platform-row"><img src="../assets/platforms/chatgpt.png" alt=""><strong>ChatGPT</strong><select id="chatgptVoiceId" class="pvoice" aria-label="ElevenLabs voice for ChatGPT"></select><div class="switch"><input type="checkbox" id="chatgptEnabled" aria-label="Enable ChatGPT"></div></div>
+      <div class="platform-row"><img src="../assets/platforms/claude.png" alt=""><strong>Claude</strong><select id="claudeVoiceId" class="pvoice" aria-label="ElevenLabs voice for Claude"></select><div class="switch"><input type="checkbox" id="claudeEnabled" aria-label="Enable Claude"></div></div>
+      <div class="platform-row"><img src="../assets/platforms/gemini.png" alt=""><strong>Gemini</strong><select id="geminiVoiceId" class="pvoice" aria-label="ElevenLabs voice for Gemini"></select><div class="switch"><input type="checkbox" id="geminiEnabled" aria-label="Enable Gemini"></div></div>
+      <div class="platform-row"><img src="../assets/platforms/grok.png" alt=""><strong>Grok</strong><select id="grokVoiceId" class="pvoice" aria-label="ElevenLabs voice for Grok"></select><div class="switch"><input type="checkbox" id="grokEnabled" aria-label="Enable Grok"></div></div>
+    </div>
+    <p class="platform-note">Voices apply in ElevenLabs mode; “Site” keeps each AI's own voice. Replies play in completion order across tabs, never overlapping.</p>
+  </div>
+
+  <!-- summary level (no section header) -->
+  <fieldset class="narrlist narr-section">
+    <label title="Shortest summary: only what needs your attention."><input type="radio" name="mode" value="fast" /><span class="narropt"><span class="em">⚡</span><span class="nm">Fast</span></span></label>
+    <label title="Plain-language summary of the reply. (default)"><input type="radio" name="mode" value="beginner" /><span class="narropt"><span class="em">🌱</span><span class="nm">Beginner</span><span class="dflt">default</span></span></label>
+    <label title="Dense technical summary, keeping the terms."><input type="radio" name="mode" value="advanced" /><span class="narropt"><span class="em">🛠️</span><span class="nm">Advanced</span></span></label>
+    <label title="Reads the entire reply, uncut."><input type="radio" name="mode" value="completo" /><span class="narropt"><span class="em">📄</span><span class="nm">Full</span></span></label>
+  </fieldset>
+
+  <!-- sounds + waveform (no section header) -->
+  <div class="soundgroup narr-section">
+    <div class="soundline-solo" title="Show animated waveform bar at top of the page while reading.">
+      <label for="waveformEnabled">📊 Waveform bar</label>
+      <div class="switch"><input type="checkbox" id="waveformEnabled" /></div>
+    </div>
+  </div>
+
+  <!-- voice & engine config (set-once, collapsed) -->
+  <details class="cfg narr-section" id="cfgVoice">
+    <summary title="Who generates the speech and voice parameters. Set once.">
+      <span class="cfg-ttl">Voice &amp; engine</span>
+      <span class="cfg-state" id="voiceState"></span>
+    </summary>
+    <div class="cfg-body">
+  <div class="segmented">
+    <div class="seg" id="segNative" data-engine="native"><span class="em">🔊</span> Native</div>
+    <div class="seg" id="segEleven" data-engine="elevenlabs"><span class="em">☁️</span> ElevenLabs</div>
+  </div>
+
+  <!-- NATIVE VOICE -->
+  <section class="vpanel" id="panelNative">
+    <div class="field nv" title="System-installed voice. Auto = best match for the language selected in ⚙ Settings.">
+      <label for="nativeVoice">Voice</label>
+      <select id="nativeVoice"><option value="">Auto</option></select>
+    </div>
+
+    <div class="field" title="Speech rate. 1.00 = normal.">
+      <label for="rate">Speed</label>
+      <input type="range" id="rate" min="0.5" max="2" step="0.05" />
+      <span class="rngval" id="rateOut">1.05</span>
+    </div>
+
+    <div class="field" title="Pitch. 1.00 = natural.">
+      <label for="pitch">Pitch</label>
+      <input type="range" id="pitch" min="0" max="2" step="0.1" />
+      <span class="rngval" id="pitchOut">1.00</span>
+    </div>
+
+    <div class="field" title="Native voice volume.">
+      <label for="volume">Volume</label>
+      <input type="range" id="volume" min="0" max="1" step="0.05" />
+      <span class="rngval" id="volumeOut">1.00</span>
+    </div>
+
+    <div class="btnrow">
+      <button class="act ghost" id="testNative" title="Play sample phrase with the native voice.">▶ Test</button>
+      <button class="act ghost mini" id="resetNative" title="Reset voice, speed, pitch, and volume to defaults.">↺ Reset</button>
+    </div>
+  </section>
+
+  <!-- ELEVENLABS -->
+  <section class="vpanel" id="panelEleven" hidden>
+    <div class="field nv" title="Generation model. Flash = fastest + cheapest, multilingual. Recommended for live narration.">
+      <label for="elevenModel">Model</label>
+      <select id="elevenModel">
+        <option value="eleven_flash_v2_5">Flash v2.5 (Recommended)</option>
+        <option value="eleven_v4_turbo">v4 Turbo (Expressive realtime)</option>
+        <option value="eleven_v4">v4 (Highest quality)</option>
+        <option value="eleven_v3_conversational">v3 Conversational</option>
+        <option value="eleven_v3">v3 (Expressive)</option>
+        <option value="eleven_multilingual_v2">Multilingual v2</option>
+      </select>
+    </div>
+
+    <div class="voicerow" title="Voices from your account (cached). Use ↻ if you add new voices. Configure the API key in ⚙ Settings.">
+      <label for="elevenVoiceId">Voice</label>
+      <select id="elevenVoiceId"><option value="">— no voices —</option></select>
+      <button class="ghost mini" id="refreshVoices" title="Reload voices from the API (bypass cache).">↻</button>
+    </div>
+
+    <div class="field" title="Voice consistency. Low = expressive/variable; High = flat/predictable.">
+      <label for="elevenStability">Stability</label>
+      <input type="range" id="elevenStability" min="0" max="1" step="0.01" />
+      <span class="rngval" id="stabOut">20%</span>
+    </div>
+
+    <div class="field" title="How closely it mimics the original voice. High = more faithful to the cloned voice.">
+      <label for="elevenSimilarity">Similarity</label>
+      <input type="range" id="elevenSimilarity" min="0" max="1" step="0.01" />
+      <span class="rngval" id="simOut">20%</span>
+    </div>
+
+    <div class="field" title="Style/emotion exaggeration (v2+). Higher = more dramatic, less stable.">
+      <label for="elevenStyle">Style</label>
+      <input type="range" id="elevenStyle" min="0" max="1" step="0.01" />
+      <span class="rngval" id="styleOut">50%</span>
+    </div>
+
+    <div class="field" title="Speech rate. ElevenLabs supports 0.70 to 1.20; 1.00 = normal.">
+      <label for="elevenSpeed">Speed</label>
+      <input type="range" id="elevenSpeed" min="0.7" max="1.2" step="0.05" />
+      <span class="rngval" id="elevenSpeedOut">+10%</span>
+    </div>
+
+    <div class="btnrow">
+      <button class="act ghost" id="resetEleven" title="Reset ElevenLabs parameters to defaults.">↺ Reset to recommended</button>
+    </div>
+  </section>
+    </div>
+  </details>
+
+  </div><!-- /viewMain -->
+
+  <div class="stats-line" aria-label="Today's reading statistics">
+    <span><b id="statsWords">0</b> words</span><span><b id="statsMinutes">0</b> min</span><span><b id="statsNarrations">0</b> replies</span><em>today</em>
+  </div>
+
+  <div id="msg"></div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-bg" id="settingsModal" hidden>
+    <div class="modal">
+      <button type="button" class="modal-x" id="settingsClose" title="Close" aria-label="Close">✕</button>
+      <h2>Settings</h2>
+
+      <!-- ElevenLabs API key with inline status -->
+      <div class="key-header">
+        <h3>ElevenLabs API key</h3>
+        <div class="keystatus">
+          <span class="dot" id="keyDot"></span>
+          <span class="txt" id="keyTxt">No API key</span>
+        </div>
+      </div>
+      <div class="keyinput">
+        <input type="password" id="elevenKey" placeholder="xi-api-key..." />
+        <button class="ghost mini" id="keyReveal" title="Show/hide">👁</button>
+      </div>
+      <div class="btnrow">
+        <button class="act primary" id="saveElevenKey">Save &amp; verify key</button>
+      </div>
+      <a id="keyAffiliate" class="affiliate" href="https://nxlv.ai/elevenlabs?utm_source=yappable" target="_blank" rel="noopener noreferrer" hidden>
+        Don't have a key yet? <strong>Create an account →</strong>
+      </a>
+
+      <h3>ElevenLabs audio</h3>
+      <div class="field nv" title="Audio quality. Higher bitrate = better quality and more credits per character.">
+        <label for="elevenOutputFormat">Quality</label>
+        <select id="elevenOutputFormat">
+          <option value="mp3_22050_32">22 kHz @ 32 kbps</option>
+          <option value="mp3_44100_32">44 kHz @ 32 kbps</option>
+          <option value="mp3_44100_64">44 kHz @ 64 kbps (default)</option>
+          <option value="mp3_44100_96">44 kHz @ 96 kbps</option>
+          <option value="mp3_44100_128">44 kHz @ 128 kbps</option>
+          <option value="mp3_44100_192">44 kHz @ 192 kbps (Creator+)</option>
+        </select>
+      </div>
+      <div class="field nv" title="Text normalization (numbers, dates, symbols). on = always normalize; auto = decide per request; off = faster.">
+        <label for="elevenTextNormalization">Normalization</label>
+        <select id="elevenTextNormalization">
+          <option value="auto">Auto (recommended)</option>
+          <option value="on">On (Enterprise on Flash v2.5)</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div class="seed-row" title="Fixed seed = deterministic output. Uncheck 'Random' to set a specific seed (0–4294967295).">
+        <input type="checkbox" id="elevenSeedRandom" />
+        <label for="elevenSeedRandom">Random seed</label>
+        <input type="number" id="elevenSeed" min="0" max="4294967295" step="1" placeholder="—" />
+      </div>
+
+      <!-- Privacy note at the bottom -->
+      <h3>Privacy</h3>
+      <div class="privacy-note">
+        🔒 <strong>Local by default.</strong> Native speech and on-device summaries run in the browser.<br>
+        ☁️ <strong>ElevenLabs (optional):</strong> only the reply text to be read is sent to generate audio when that engine is active.
+      </div>
+    </div>
+  </div>
+
+  <script src="../src/tts-provider.js"></script>
+  <script src="../src/stats.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
