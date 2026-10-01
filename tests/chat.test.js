@@ -24,12 +24,13 @@ test("manifest is internally consistent", () => {
   }
 });
 
-test("manifest asks only for chat sites and ElevenLabs, with no Lovable or network-rule leftovers", () => {
+test("manifest asks only for chat sites, ElevenLabs is optional, with no Lovable or network-rule leftovers", () => {
   assert.deepEqual(manifest.permissions, ["storage"]);
   assert.ok(manifest.name.length <= 75, "store name over 75 chars");
   assert.ok(manifest.description.length <= 132, "store description over 132 chars");
   const hosts = new Set(manifest.host_permissions.map((h) => h.replace(/^https:\/\/|\/\*$/g, "")));
-  assert.deepEqual([...hosts].sort(), ["api.elevenlabs.io", "chat.openai.com", "chatgpt.com", "claude.ai", "gemini.google.com", "grok.com"]);
+  assert.deepEqual([...hosts].sort(), ["chat.openai.com", "chatgpt.com", "claude.ai", "gemini.google.com", "grok.com"]);
+  assert.deepEqual(manifest.optional_host_permissions, ["https://api.elevenlabs.io/*"]);
   assert.equal(manifest.declarative_net_request, undefined);
   assert.doesNotMatch(JSON.stringify(manifest), /lovable/i);
 });
@@ -55,6 +56,54 @@ test("ElevenLabs verification uses the current voices endpoint and distinguishes
   const result = await context.YapTts.verify("test-key");
   assert.equal(requestedUrl, "https://api.elevenlabs.io/v2/voices?page_size=100");
   assert.equal(result.reason, "forbidden");
+});
+
+test("ElevenLabs verification does not call the API without the optional permission", async () => {
+  let called = false;
+  const context = {
+    AbortController, clearTimeout, setTimeout,
+    chrome: { runtime: {}, permissions: { contains: (_o, cb) => cb(false) } },
+    fetch: async () => { called = true; return { ok: true, status: 200, json: async () => ({}) }; }
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "tts-provider.js"), "utf8"), context);
+  assert.equal((await context.YapTts.verify("k")).reason, "no_permission");
+  assert.equal(await context.YapTts.quota("k"), null);
+  assert.equal(called, false);
+});
+
+test("audio cache key changes when any generation parameter changes", async () => {
+  const context = { crypto, TextEncoder, btoa, atob };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "audio-store.js"), "utf8"), context);
+  const S = context.YapAudioStore;
+  const base = { text: "hi", voiceId: "v", model: "m", format: "mp3_44100_64", stability: 0.2, similarity: 0.2, style: 0.5, speed: 1.1, useSpeakerBoost: false, normalization: "auto", lang: "en" };
+  const k0 = await S.keyFor(base);
+  assert.equal(await S.keyFor({ ...base }), k0);
+  const changes = { text: "hey", voiceId: "w", model: "n", format: "mp3_44100_128", stability: 0.3, similarity: 0.3, style: 0.6, speed: 1.0, useSpeakerBoost: true, normalization: "off", seed: 7, lang: "pt" };
+  for (const [field, value] of Object.entries(changes)) {
+    assert.notEqual(await S.keyFor({ ...base, [field]: value }), k0, field);
+  }
+});
+
+test("audio cache evicts least recently used clips first, only until under the limit", () => {
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "audio-store.js"), "utf8"), context);
+  const e = (key, bytes, lastUsed) => ({ key, bytes, lastUsed, audio: {} });
+  const out = context.YapAudioStore.pickEvictions([e("a", 40, 3), e("b", 40, 1), e("c", 40, 2)], 80);
+  assert.deepEqual(Array.from(out), ["b"]);
+  assert.deepEqual(Array.from(context.YapAudioStore.pickEvictions([e("a", 40, 1)], 80)), []);
+});
+
+test("audio base64 helpers round-trip", () => {
+  const context = { btoa, atob };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "audio-store.js"), "utf8"), context);
+  const bytes = new Uint8Array(70000).map((_, i) => i % 251);
+  const back = new Uint8Array(context.YapAudioStore.b64ToBuf(context.YapAudioStore.bufToB64(bytes.buffer)));
+  assert.equal(back.length, bytes.length);
+  assert.ok(back.every((v, i) => v === bytes[i]));
 });
 
 test("Flash v2.5 defaults to API-safe automatic text normalization", () => {
@@ -400,7 +449,7 @@ test("popup loads and explicitly saves a local ElevenLabs key", async () => {
   assert.equal(element("elevenVoiceId").options[0].value, "v1");
   assert.equal(storageEvents.some(([type, value]) => type === "remove-sync" && value === "elevenKey"), false);
 
-  context.YapTts = { verify: async () => ({ valid: false, reason: "network_error" }) };
+  context.YapTts = { verify: async () => ({ valid: false, reason: "network_error" }), requestAccess: async () => true, hasAccess: async () => true };
   element("elevenKey").value = "new-local-secret";
   await element("saveElevenKey").listeners.click();
   assert.ok(storageEvents.some(([type, value]) => type === "set-local" && value.elevenKey === "new-local-secret"));
@@ -433,7 +482,7 @@ test("onboarding saves the ElevenLabs key before verification completes", async 
       },
       tabs: {}
     },
-    YapTts: { verify: async () => ({ valid: false, reason: "network_error" }) }
+    YapTts: { verify: async () => ({ valid: false, reason: "network_error" }), requestAccess: async () => true, hasAccess: async () => true }
   };
   context.self = context;
   vm.createContext(context);
@@ -501,4 +550,47 @@ test("platforms are the main screen; stop button is grey until audio plays", () 
   assert.doesNotMatch(html, /\.stop-btn \{[^}]*color: var\(--danger\)/);
   const js = fs.readFileSync(path.join(root, "popup", "popup.js"), "utf8");
   assert.match(js, /audible: true/);
+});
+
+function loadStream(extra = {}) {
+  const context = { setTimeout, clearTimeout, Uint8Array, ...extra };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "eleven-stream.js"), "utf8"), context);
+  return context.YapElevenStream;
+}
+const bodyOf = (parts) => ({
+  body: new ReadableStream({ start(c) { for (const p of parts) c.enqueue(new Uint8Array(p)); c.close(); } })
+});
+
+test("ElevenLabs streaming is used only for MP3 formats with MediaSource support", () => {
+  const MediaSource = { isTypeSupported: (mime) => mime === "audio/mpeg" };
+  const S = loadStream({ MediaSource });
+  assert.equal(S.supported("mp3_44100_64"), true);
+  assert.equal(S.supported("pcm_16000"), false);
+  assert.equal(S.supported("opus_48000_64"), false);
+  assert.equal(loadStream().supported("mp3_44100_64"), false, "no MediaSource -> full download");
+});
+
+test("ElevenLabs stream keeps every chunk and resolves the complete MP3 for the cache", async () => {
+  const S = loadStream();
+  const s = S.open(bodyOf([[1, 2], [3], [4, 5, 6]]));
+  const buf = await s.done;
+  assert.deepEqual(Array.from(new Uint8Array(buf)), [1, 2, 3, 4, 5, 6]);
+  assert.equal(s.finished, true);
+  assert.equal(s.bytes, 6);
+});
+
+test("an empty ElevenLabs stream fails instead of playing silence", async () => {
+  const s = loadStream().open(bodyOf([]));
+  await assert.rejects(s.done);
+  assert.ok(s.failed);
+});
+
+test("a stalled ElevenLabs stream calls onStall", async () => {
+  let stalled = false;
+  let ctrl;
+  const res = { body: new ReadableStream({ start(c) { ctrl = c; c.enqueue(new Uint8Array([1])); } }) };
+  const s = loadStream().open(res, { stallMs: 20, onStall: () => { stalled = true; ctrl.error(new Error("aborted")); } });
+  await assert.rejects(s.done);
+  assert.equal(stalled, true);
 });

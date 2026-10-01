@@ -1,6 +1,6 @@
 # Plano — streaming do áudio ElevenLabs com cache local e histórico
 
-Status: proposta · Alvo: `yappable-for-your-ai` primeiro, depois `yappable-for-lovable` · Origem: PR #4 do `yappable-for-lovable` (fechado por estar defasado)
+Status: fases 1–2 implementadas em `your-ai` e `lovable`; fase 3 = streaming via `/stream` + MediaSource (`src/eleven-stream.js`, compartilhado), com fallback para o MP3 inteiro; fase 4 (port para `lovable`) feita · Origem: PR #4 do `yappable-for-lovable` (fechado por estar defasado)
 
 ## Objetivo
 
@@ -41,7 +41,7 @@ mudaram demais desde então (1.0.0 e split da 1.3.0).
   usam a mesma fonte).
 - Controles de privacidade no popup: desligar histórico, limpar cache.
 
-## Atenção específica ao `yappable-for-your-ai`
+## Atenção específica ao `yappable`
 
 - O player atual (`src/media-hook.js`, `src/player-ui.js`) oferece **pause, seek e
   velocidade com pitch preservado** a partir de um blob WAV. Streaming via

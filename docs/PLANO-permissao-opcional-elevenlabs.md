@@ -1,6 +1,6 @@
 # Plano — permissão opcional do ElevenLabs (menos avisos na instalação)
 
-Status: proposta · Alvo: `yappable-for-your-ai` primeiro, depois `yappable-for-lovable` · Origem: PR #3 do `yappable-for-lovable` (fechado por estar defasado)
+Status: implementado em `your-ai` e `lovable` · Origem: PR #3 do `yappable-for-lovable` (fechado por estar defasado)
 
 ## Objetivo
 
@@ -22,7 +22,7 @@ git show ref/pr3 -- manifest.json popup/popup.js popup/onboarding.js
 Usar só como referência de abordagem. O `content.js` daquele PR está muito
 defasado (antes da 1.0.0 e do split da 1.3.0) e não deve ser mergeado.
 
-## Passos — `yappable-for-your-ai`
+## Passos — `yappable`
 
 1. **`manifest.json`**: tirar `https://api.elevenlabs.io/*` de `host_permissions` e
    criar `"optional_host_permissions": ["https://api.elevenlabs.io/*"]`.

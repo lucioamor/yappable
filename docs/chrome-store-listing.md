@@ -1,6 +1,6 @@
 # Chrome Web Store: Listing Copy
 
-Copy/paste source for the Yappable for your AI listing. Keep in sync with `manifest.json`, `README.md`, `CHANGELOG.md`.
+Copy/paste source for the Yappable listing. Keep in sync with `manifest.json`, `README.md`, `CHANGELOG.md`.
 
 ## Name (max 75 chars)
 
@@ -30,6 +30,10 @@ cuts them off.
 - **One voice at a time across tabs**, with an "Up next" queue in the player.
 - **Three voices:** your system voice, ElevenLabs (bring your own key) or each site's own read-aloud voice.
 - **A different ElevenLabs voice per AI**, to tell them apart by ear.
+- **Fast premium voice.** ElevenLabs audio is streamed, so it starts in a moment, with any model
+  (Flash, v3, v4, v4 Turbo).
+- **Never pay twice for the same audio.** Generated audio is cached on your device, with a narration
+  history to replay, download or copy.
 - **Floating player** per tab: play/pause, speed, Alt+K shortcut, waveform.
 - **Summary levels:** Fast, Beginner, Advanced or Full, using Chrome's on-device AI when available.
 - **Local daily stats.** No analytics.
@@ -38,6 +42,8 @@ cuts them off.
 
 100% local by default. Native speech and on-device summaries run in your browser. ElevenLabs is optional: if you
 enable it, only the reply text to be read is sent to generate audio, and your key stays in local storage, never synced.
+ElevenLabs access is an optional permission, asked only when you turn it on. The audio cache and history stay on your
+device; turn them off or clear them anytime.
 Runs only on ChatGPT, Claude, Gemini and Grok.
 
 *Independent extension. Not affiliated with, endorsed by, or sponsored by OpenAI, Anthropic, Google or xAI.*
@@ -46,4 +52,4 @@ Runs only on ChatGPT, Claude, Gemini and Grok.
 
 Category: Productivity. Single purpose: read AI chat replies aloud. Data collection: none by the developer.
 Host permission justification: the four chat sites (read the latest finished reply, show the player) and
-`api.elevenlabs.io` (optional voice generation with the user's own key).
+`api.elevenlabs.io` (optional host permission, requested only when the user turns on ElevenLabs, for voice generation with the user's own key).

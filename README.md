@@ -1,4 +1,4 @@
-# Yappable for your AI: read ChatGPT, Claude, Gemini & Grok replies aloud
+# Yappable: read ChatGPT, Claude, Gemini & Grok replies aloud
 
 Hear every AI reply aloud. Yappable reads finished **ChatGPT**, **Claude**, **Gemini** and **Grok**
 replies the moment they land, one voice at a time, even when you have several chats open.
@@ -38,7 +38,7 @@ never synced. See [docs/privacy-policy.md](docs/privacy-policy.md).
 ```bash
 npm test               # unit tests (node:test)
 npm run qa             # syntax check + tests
-npm run package        # yappable-for-your-ai-<version>.zip for the Chrome Web Store
+npm run package        # yappable-<version>.zip for the Chrome Web Store
 npm run check-shared   # compare shared files with ../yappable-for-lovable, if present
 ```
 

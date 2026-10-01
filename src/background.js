@@ -9,6 +9,8 @@
 // ============================================================================
 "use strict";
 
+if (typeof importScripts === "function") importScripts("audio-store.js");
+
 // No log pipeline in this extension; call sites keep the same shape as
 // yappable-for-lovable's background.
 const L = { ok() {}, info() {}, fallback() {}, fail() {} };
@@ -340,5 +342,42 @@ if (chrome.runtime.onConnect && typeof chrome.runtime.onConnect.addListener === 
       broadcastChatAudio();
       pumpChatAudioQueue();
     });
+  });
+}
+
+// ============================================================================
+// ElevenLabs audio cache + history (IndexedDB in the extension origin).
+// Content scripts cannot share it across sites, so they ask the worker.
+// Audio travels as base64: runtime messages are JSON-serialized.
+// ============================================================================
+const CACHE_DEFAULTS = { elevenCache: true, elevenHistory: true };
+
+if (chrome.runtime.onMessage && typeof chrome.runtime.onMessage.addListener === "function") {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!message || sender.id !== chrome.runtime.id) return false;
+    const Store = self.YapAudioStore;
+    if (message.type === "YAP_CACHE_GET") {
+      chrome.storage.sync.get(CACHE_DEFAULTS, async (st) => {
+        try {
+          if (!st.elevenCache) return sendResponse({ hit: false });
+          const e = await Store.get(String(message.key));
+          if (!e) return sendResponse({ hit: false });
+          sendResponse({ hit: true, b64: Store.bufToB64(await e.audio.arrayBuffer()) });
+        } catch (_) { sendResponse({ hit: false }); }
+      });
+      return true;
+    }
+    if (message.type === "YAP_CACHE_PUT") {
+      chrome.storage.sync.get(CACHE_DEFAULTS, async (st) => {
+        try {
+          if (!st.elevenCache) return sendResponse({ ok: false });
+          const blob = new Blob([Store.b64ToBuf(message.b64)], { type: "audio/mpeg" });
+          await Store.put({ ...message.meta, key: String(message.key), history: !!st.elevenHistory }, blob);
+          sendResponse({ ok: true });
+        } catch (_) { sendResponse({ ok: false }); }
+      });
+      return true;
+    }
+    return false;
   });
 }

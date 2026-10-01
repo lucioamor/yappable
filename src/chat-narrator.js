@@ -56,7 +56,10 @@
     elevenSimilarity: 0.2,
     elevenStyle: 0.5,
     elevenSpeed: 1.1,
-    elevenTextNormalization: "auto"
+    elevenTextNormalization: "auto",
+    elevenCache: true,
+    elevenHistory: true,
+    elevenStream: true
   };
   const LANG_MODELS = /flash_v2_5|eleven_v3|eleven_v4/;
   const ELEVEN_TIMEOUT_MS = 30000;
@@ -417,12 +420,42 @@
         body.apply_text_normalization = "auto";
       }
       if (LANG_MODELS.test(cfg.elevenModel)) body.language_code = lang.split("-")[0];
+      const voiceId = voiceForPlatform();
+      const Store = globalThis.YapAudioStore;
+      let cacheKey = "";
+      if (cfg.elevenCache && Store) {
+        try {
+          cacheKey = await Store.keyFor({
+            text, voiceId, model: cfg.elevenModel, format: cfg.elevenOutputFormat,
+            stability: body.voice_settings.stability, similarity: body.voice_settings.similarity_boost,
+            style: body.voice_settings.style, speed: body.voice_settings.speed, useSpeakerBoost: false,
+            normalization: body.apply_text_normalization, lang: body.language_code || ""
+          });
+          const hit = await chrome.runtime.sendMessage({ type: "YAP_CACHE_GET", key: cacheKey });
+          if (hit && hit.hit && hit.b64) return Store.b64ToBuf(hit.b64);
+        } catch (_) { /* cache is best effort: fall through to the API */ }
+      }
+      const cachePut = (buf) => {
+        if (!cacheKey) return;
+        try {
+          chrome.runtime.sendMessage({
+            type: "YAP_CACHE_PUT", key: cacheKey, b64: Store.bufToB64(buf),
+            meta: {
+              text, voiceId, model: cfg.elevenModel, format: cfg.elevenOutputFormat,
+              platform: adapter.id, pageUrl: location.origin + location.pathname
+            }
+          }).catch(() => {});
+        } catch (_) {}
+      };
+      // Streaming: playback can start on the first chunks instead of the whole MP3.
+      const Stream = globalThis.YapElevenStream;
+      const streaming = cfg.elevenStream && Stream && Stream.supported(cfg.elevenOutputFormat);
       const ctrl = new AbortController();
       fetchCtrl = ctrl;
       const timer = setTimeout(() => ctrl.abort(), ELEVEN_TIMEOUT_MS);
       try {
         const res = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceForPlatform()}?output_format=${cfg.elevenOutputFormat}`,
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}${streaming ? "/stream" : ""}?output_format=${cfg.elevenOutputFormat}`,
           {
             method: "POST",
             headers: { "xi-api-key": cfg.elevenKey, "Content-Type": "application/json", Accept: "audio/mpeg" },
@@ -431,16 +464,28 @@
           }
         );
         if (!res.ok) throw new Error(`ElevenLabs ${res.status}`);
-        return await res.arrayBuffer();
+        if (streaming && res.body) {
+          // The body keeps downloading after this returns; stop() must not abort it,
+          // so it leaves fetchCtrl (cleared below) and only a stall aborts it.
+          const stream = Stream.open(res, { onStall: () => ctrl.abort() });
+          stream.done.then(cachePut, () => {});
+          return { stream };
+        }
+        const buf = await res.arrayBuffer();
+        cachePut(buf);
+        return buf;
       } finally {
         clearTimeout(timer);
         if (fetchCtrl === ctrl) fetchCtrl = null;
       }
     }
 
-    async function playElevenBuffer(buf, my) {
+    // `src` is an ArrayBuffer (cache hit or full download) or { stream } (still downloading).
+    async function playElevenBuffer(src, my) {
       if (my !== epoch) return;
-      const url = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
+      const url = src && src.stream
+        ? src.stream.mediaUrl()
+        : URL.createObjectURL(new Blob([src], { type: "audio/mpeg" }));
       try {
         await new Promise((resolve, reject) => {
           const a = new Audio(url);
@@ -469,7 +514,9 @@
       return async () => {
         stop();
         const my = epoch;
-        if (elevenBuffer) await playElevenBuffer(elevenBuffer, my);
+        // A stream that broke before playback started falls back to the system voice.
+        const broken = elevenBuffer && elevenBuffer.stream && elevenBuffer.stream.failed;
+        if (elevenBuffer && !broken) await playElevenBuffer(elevenBuffer, my);
         else await playNative(text, lang, my);
       };
     }

@@ -27,7 +27,10 @@ const DEFAULTS = {
   elevenSpeed: 1.1,
   elevenTextNormalization: "auto",
   elevenSeedRandom: true,
-  elevenSeed: null
+  elevenSeed: null,
+  elevenCache: true,
+  elevenHistory: true,
+  elevenStream: true
 };
 
 // modelos que aceitam language_code (enforce). Multilingual v2 auto-detecta.
@@ -233,8 +236,18 @@ function reflectSummaries() {
     vs.textContent = `${eng} · ${cc}`;
   }
 }
-function setEngine(engine) {
+const NO_ELEVEN_ACCESS = "ElevenLabs not authorized: allow access to api.elevenlabs.io to use it.";
+async function setEngine(engine) {
   if (cfg.engine === engine) return;
+  if (engine === "elevenlabs") {
+    // Runs inside the click handler, so the permission prompt keeps its user gesture.
+    const granted = await globalThis.YapTts.requestAccess();
+    if (!granted) {
+      msg(NO_ELEVEN_ACCESS);
+      if (cfg.engine !== "native") { set("engine", "native"); reflectEngine(); }
+      return;
+    }
+  }
   set("engine", engine);
   reflectEngine();
 }
@@ -353,12 +366,18 @@ $("keyReveal").addEventListener("click", () => {
 });
 async function saveAndVerifyElevenKey() {
   const k = $("elevenKey").value.trim();
+  // First await in the click handler: keeps the user gesture for the permission prompt.
+  const granted = k ? await globalThis.YapTts.requestAccess() : true;
   const changed = k !== cfg.elevenKey;
   set("elevenKey", k);
   reflectKeyStatus();
   L.info("config", "elevenKey", "chave ElevenLabs atualizada", { hasKey: !!k, changed });
   if (!k) {
     msg("ElevenLabs key removed.");
+    return;
+  }
+  if (!granted) {
+    msg("Key saved, but ElevenLabs is not authorized. Allow access to api.elevenlabs.io to verify it.");
     return;
   }
 
@@ -370,6 +389,7 @@ async function saveAndVerifyElevenKey() {
   try {
     const result = await globalThis.YapTts.verify(k);
     if (!result.valid) {
+      if (result.reason === "no_permission") { cfg._authStatus = "unverified"; reflectKeyStatus(); msg(NO_ELEVEN_ACCESS); return; }
       const status = result.reason === "invalid_key" || result.reason === "forbidden" ? "invalid" : "network_error";
       cfg._authStatus = status;
       chrome.storage.local.get({ auth: null }, (st) => {
@@ -550,6 +570,15 @@ function loadElevenVoices(force) {
       populateElevenVoices(cache.voices);
       return;
     }
+    if (!(await globalThis.YapTts.hasAccess())) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "ElevenLabs not authorized";
+      $("elevenVoiceId").replaceChildren(option);
+      showPlatformVoicesOff();
+      msg(NO_ELEVEN_ACCESS);
+      return;
+    }
     msg("Loading voices…");
     const endDbg = L.start("engine", "loadElevenVoices", "GET /v2/voices (ElevenLabs)", { force });
     try {
@@ -605,6 +634,9 @@ function reflectUI() {
   reflectEngine();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === normalizeMode(cfg.mode); });
   $("waveformEnabled").checked = cfg.waveformEnabled;
+  $("elevenStream").checked = cfg.elevenStream;
+  $("elevenCache").checked = cfg.elevenCache;
+  $("elevenHistory").checked = cfg.elevenHistory;
   for (const key of Object.keys(PLATFORM_URLS)) $(key).checked = cfg[key] !== false;
   $("chatAnnouncementStyle").value = cfg.chatAnnouncementStyle;
 
@@ -707,6 +739,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // ---------------------------------------------------------------------------
 bindToggle("enabled");
 bindToggle("waveformEnabled");
+bindToggle("elevenStream");
+bindToggle("elevenCache");
+bindToggle("elevenHistory");
 for (const key of Object.keys(PLATFORM_URLS)) {
   bindToggle(key);
   $(key).addEventListener("change", () => {
