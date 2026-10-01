@@ -34,6 +34,9 @@ remote scripts, stylesheets or fonts.
 
 ## Optional ElevenLabs Processing
 
+ElevenLabs access is an optional browser permission (`api.elevenlabs.io`). Yappable asks for it only when you
+turn ElevenLabs on, and nothing is sent to ElevenLabs until you grant it.
+
 If you add an ElevenLabs API key and select ElevenLabs as the voice engine, Yappable sends the reply text as it
 will be spoken, plus voice settings, to ElevenLabs to generate audio. Your key is stored in `chrome.storage.local`
 and is sent to ElevenLabs only for API authentication.

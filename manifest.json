@@ -9,7 +9,9 @@
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://gemini.google.com/*",
-    "https://grok.com/*",
+    "https://grok.com/*"
+  ],
+  "optional_host_permissions": [
     "https://api.elevenlabs.io/*"
   ],
   "background": {

@@ -46,4 +46,4 @@ Runs only on ChatGPT, Claude, Gemini and Grok.
 
 Category: Productivity. Single purpose: read AI chat replies aloud. Data collection: none by the developer.
 Host permission justification: the four chat sites (read the latest finished reply, show the player) and
-`api.elevenlabs.io` (optional voice generation with the user's own key).
+`api.elevenlabs.io` (optional host permission, requested only when the user turns on ElevenLabs, for voice generation with the user's own key).

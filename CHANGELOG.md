@@ -6,6 +6,13 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/) and
 
 ---
 
+## [Unreleased]
+
+### Changed
+- `api.elevenlabs.io` is now an optional host permission, requested only when ElevenLabs is turned on.
+
+---
+
 ## [1.0.0] — 2026-09-30
 
 First release. Split out of Yappable for Lovable (`yappable-for-lovable@546012c`, 1.3.0 development
