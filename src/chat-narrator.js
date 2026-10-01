@@ -407,7 +407,8 @@
           stability: cfg.elevenStability,
           similarity_boost: cfg.elevenSimilarity,
           style: cfg.elevenStyle,
-          speed: cfg.elevenSpeed,
+          // ElevenLabs only accepts speed in 0.7–1.2; anything else returns 400.
+          speed: Math.min(1.2, Math.max(0.7, Number(cfg.elevenSpeed) || 1)),
           use_speaker_boost: false
         },
         apply_text_normalization: cfg.elevenTextNormalization || "auto"
