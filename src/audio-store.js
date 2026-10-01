@@ -1,3 +1,4 @@
+// Shared with yappable-for-lovable (src/audio-store.js). Keep both copies in sync.
 // ============================================================================
 // audio-store.js — persistent ElevenLabs audio cache + narration history.
 //
