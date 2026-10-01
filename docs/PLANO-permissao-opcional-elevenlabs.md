@@ -1,6 +1,6 @@
 # Plano — permissão opcional do ElevenLabs (menos avisos na instalação)
 
-Status: proposta · Alvo: `yappable-for-your-ai` primeiro, depois `yappable-for-lovable` · Origem: PR #3 do `yappable-for-lovable` (fechado por estar defasado)
+Status: implementado em `your-ai` (lovable pendente) · Alvo: `yappable-for-your-ai` primeiro, depois `yappable-for-lovable` · Origem: PR #3 do `yappable-for-lovable` (fechado por estar defasado)
 
 ## Objetivo
 

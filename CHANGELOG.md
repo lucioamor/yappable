@@ -11,6 +11,12 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/) and
 ### Changed
 - `api.elevenlabs.io` is now an optional host permission, requested only when ElevenLabs is turned on.
 
+### Added
+- Persistent ElevenLabs audio cache (IndexedDB, 50 MB, least-recently-used eviction): the same text with
+  the same voice and settings is never generated or billed twice.
+- Narration history in Settings: replay, download MP3, copy text, open source page, delete audio and
+  record independently. Toggles to turn the cache and the history off; buttons to clear them.
+
 ---
 
 ## [1.0.0] — 2026-09-30

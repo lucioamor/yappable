@@ -1,6 +1,6 @@
 # Plano — streaming do áudio ElevenLabs com cache local e histórico
 
-Status: proposta · Alvo: `yappable-for-your-ai` primeiro, depois `yappable-for-lovable` · Origem: PR #4 do `yappable-for-lovable` (fechado por estar defasado)
+Status: fases 1–2 implementadas em `your-ai`; fase 3 = opção B (sem streaming, decidido); fase 4 pendente · Alvo: `yappable-for-your-ai` primeiro, depois `yappable-for-lovable` · Origem: PR #4 do `yappable-for-lovable` (fechado por estar defasado)
 
 ## Objetivo
 

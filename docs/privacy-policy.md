@@ -32,6 +32,13 @@ By default Yappable uses native browser speech. The Chrome Built-in AI summary p
 when available. Yappable does not send reply text to a remote summarization service. Yappable does not load
 remote scripts, stylesheets or fonts.
 
+## Local Audio Cache and History
+
+When ElevenLabs is enabled, generated audio is cached in this browser (IndexedDB, up to 50 MB). If narration
+history is on, the cache also keeps each narrated text, voice, time and the page address (without query string).
+This stays on your device and is never sent to the developer. You can turn the cache or history off, delete
+single items, or clear everything in Settings. Removing the extension deletes it.
+
 ## Optional ElevenLabs Processing
 
 ElevenLabs access is an optional browser permission (`api.elevenlabs.io`). Yappable asks for it only when you

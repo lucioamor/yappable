@@ -56,7 +56,9 @@
     elevenSimilarity: 0.2,
     elevenStyle: 0.5,
     elevenSpeed: 1.1,
-    elevenTextNormalization: "auto"
+    elevenTextNormalization: "auto",
+    elevenCache: true,
+    elevenHistory: true
   };
   const LANG_MODELS = /flash_v2_5|eleven_v3|eleven_v4/;
   const ELEVEN_TIMEOUT_MS = 30000;
@@ -417,12 +419,27 @@
         body.apply_text_normalization = "auto";
       }
       if (LANG_MODELS.test(cfg.elevenModel)) body.language_code = lang.split("-")[0];
+      const voiceId = voiceForPlatform();
+      const Store = globalThis.YapAudioStore;
+      let cacheKey = "";
+      if (cfg.elevenCache && Store) {
+        try {
+          cacheKey = await Store.keyFor({
+            text, voiceId, model: cfg.elevenModel, format: cfg.elevenOutputFormat,
+            stability: body.voice_settings.stability, similarity: body.voice_settings.similarity_boost,
+            style: body.voice_settings.style, speed: body.voice_settings.speed, useSpeakerBoost: false,
+            normalization: body.apply_text_normalization, lang: body.language_code || ""
+          });
+          const hit = await chrome.runtime.sendMessage({ type: "YAP_CACHE_GET", key: cacheKey });
+          if (hit && hit.hit && hit.b64) return Store.b64ToBuf(hit.b64);
+        } catch (_) { /* cache is best effort: fall through to the API */ }
+      }
       const ctrl = new AbortController();
       fetchCtrl = ctrl;
       const timer = setTimeout(() => ctrl.abort(), ELEVEN_TIMEOUT_MS);
       try {
         const res = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceForPlatform()}?output_format=${cfg.elevenOutputFormat}`,
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=${cfg.elevenOutputFormat}`,
           {
             method: "POST",
             headers: { "xi-api-key": cfg.elevenKey, "Content-Type": "application/json", Accept: "audio/mpeg" },
@@ -431,7 +448,19 @@
           }
         );
         if (!res.ok) throw new Error(`ElevenLabs ${res.status}`);
-        return await res.arrayBuffer();
+        const buf = await res.arrayBuffer();
+        if (cacheKey) {
+          try {
+            chrome.runtime.sendMessage({
+              type: "YAP_CACHE_PUT", key: cacheKey, b64: Store.bufToB64(buf),
+              meta: {
+                text, voiceId, model: cfg.elevenModel, format: cfg.elevenOutputFormat,
+                platform: adapter.id, pageUrl: location.origin + location.pathname
+              }
+            }).catch(() => {});
+          } catch (_) {}
+        }
+        return buf;
       } finally {
         clearTimeout(timer);
         if (fetchCtrl === ctrl) fetchCtrl = null;

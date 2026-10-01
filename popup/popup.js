@@ -27,7 +27,9 @@ const DEFAULTS = {
   elevenSpeed: 1.1,
   elevenTextNormalization: "auto",
   elevenSeedRandom: true,
-  elevenSeed: null
+  elevenSeed: null,
+  elevenCache: true,
+  elevenHistory: true
 };
 
 // modelos que aceitam language_code (enforce). Multilingual v2 auto-detecta.
@@ -631,6 +633,8 @@ function reflectUI() {
   reflectEngine();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === normalizeMode(cfg.mode); });
   $("waveformEnabled").checked = cfg.waveformEnabled;
+  $("elevenCache").checked = cfg.elevenCache;
+  $("elevenHistory").checked = cfg.elevenHistory;
   for (const key of Object.keys(PLATFORM_URLS)) $(key).checked = cfg[key] !== false;
   $("chatAnnouncementStyle").value = cfg.chatAnnouncementStyle;
 
@@ -733,6 +737,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // ---------------------------------------------------------------------------
 bindToggle("enabled");
 bindToggle("waveformEnabled");
+bindToggle("elevenCache");
+bindToggle("elevenHistory");
 for (const key of Object.keys(PLATFORM_URLS)) {
   bindToggle(key);
   $(key).addEventListener("change", () => {

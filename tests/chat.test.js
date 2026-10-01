@@ -72,6 +72,40 @@ test("ElevenLabs verification does not call the API without the optional permiss
   assert.equal(called, false);
 });
 
+test("audio cache key changes when any generation parameter changes", async () => {
+  const context = { crypto, TextEncoder, btoa, atob };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "audio-store.js"), "utf8"), context);
+  const S = context.YapAudioStore;
+  const base = { text: "hi", voiceId: "v", model: "m", format: "mp3_44100_64", stability: 0.2, similarity: 0.2, style: 0.5, speed: 1.1, useSpeakerBoost: false, normalization: "auto", lang: "en" };
+  const k0 = await S.keyFor(base);
+  assert.equal(await S.keyFor({ ...base }), k0);
+  const changes = { text: "hey", voiceId: "w", model: "n", format: "mp3_44100_128", stability: 0.3, similarity: 0.3, style: 0.6, speed: 1.0, useSpeakerBoost: true, normalization: "off", seed: 7, lang: "pt" };
+  for (const [field, value] of Object.entries(changes)) {
+    assert.notEqual(await S.keyFor({ ...base, [field]: value }), k0, field);
+  }
+});
+
+test("audio cache evicts least recently used clips first, only until under the limit", () => {
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "audio-store.js"), "utf8"), context);
+  const e = (key, bytes, lastUsed) => ({ key, bytes, lastUsed, audio: {} });
+  const out = context.YapAudioStore.pickEvictions([e("a", 40, 3), e("b", 40, 1), e("c", 40, 2)], 80);
+  assert.deepEqual(Array.from(out), ["b"]);
+  assert.deepEqual(Array.from(context.YapAudioStore.pickEvictions([e("a", 40, 1)], 80)), []);
+});
+
+test("audio base64 helpers round-trip", () => {
+  const context = { btoa, atob };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, "src", "audio-store.js"), "utf8"), context);
+  const bytes = new Uint8Array(70000).map((_, i) => i % 251);
+  const back = new Uint8Array(context.YapAudioStore.b64ToBuf(context.YapAudioStore.bufToB64(bytes.buffer)));
+  assert.equal(back.length, bytes.length);
+  assert.ok(back.every((v, i) => v === bytes[i]));
+});
+
 test("Flash v2.5 defaults to API-safe automatic text normalization", () => {
   for (const relative of ["popup/popup.js", "src/chat-narrator.js"]) {
     const source = fs.readFileSync(path.join(root, relative), "utf8");
