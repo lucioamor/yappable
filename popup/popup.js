@@ -29,7 +29,8 @@ const DEFAULTS = {
   elevenSeedRandom: true,
   elevenSeed: null,
   elevenCache: true,
-  elevenHistory: true
+  elevenHistory: true,
+  elevenStream: true
 };
 
 // modelos que aceitam language_code (enforce). Multilingual v2 auto-detecta.
@@ -633,6 +634,7 @@ function reflectUI() {
   reflectEngine();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === normalizeMode(cfg.mode); });
   $("waveformEnabled").checked = cfg.waveformEnabled;
+  $("elevenStream").checked = cfg.elevenStream;
   $("elevenCache").checked = cfg.elevenCache;
   $("elevenHistory").checked = cfg.elevenHistory;
   for (const key of Object.keys(PLATFORM_URLS)) $(key).checked = cfg[key] !== false;
@@ -737,6 +739,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // ---------------------------------------------------------------------------
 bindToggle("enabled");
 bindToggle("waveformEnabled");
+bindToggle("elevenStream");
 bindToggle("elevenCache");
 bindToggle("elevenHistory");
 for (const key of Object.keys(PLATFORM_URLS)) {

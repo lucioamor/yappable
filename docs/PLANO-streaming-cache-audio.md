@@ -1,6 +1,6 @@
 # Plano — streaming do áudio ElevenLabs com cache local e histórico
 
-Status: fases 1–2 implementadas em `your-ai` e `lovable`; fase 3 = opção B (sem streaming, decidido); fase 4 (port para `lovable`) feita · Origem: PR #4 do `yappable-for-lovable` (fechado por estar defasado)
+Status: fases 1–2 implementadas em `your-ai` e `lovable`; fase 3 = streaming via `/stream` + MediaSource (`src/eleven-stream.js`, compartilhado), com fallback para o MP3 inteiro; fase 4 (port para `lovable`) feita · Origem: PR #4 do `yappable-for-lovable` (fechado por estar defasado)
 
 ## Objetivo
 

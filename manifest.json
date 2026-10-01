@@ -26,7 +26,7 @@
     },
     {
       "matches": ["https://claude.ai/*", "https://chatgpt.com/*", "https://chat.openai.com/*", "https://gemini.google.com/*", "https://grok.com/*"],
-      "js": ["src/chat-adapters.js", "src/audio-store.js", "src/stats.js", "src/player-ui.js", "src/chat-narrator.js"],
+      "js": ["src/chat-adapters.js", "src/audio-store.js", "src/eleven-stream.js", "src/stats.js", "src/player-ui.js", "src/chat-narrator.js"],
       "run_at": "document_idle"
     }
   ],
