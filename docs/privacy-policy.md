@@ -1,8 +1,8 @@
-# Yappable for your AI: Privacy Policy
+# Yappable: Privacy Policy
 
 Last updated: 2026-09-30
 
-Yappable for your AI is a Chrome extension that reads finished AI chat replies aloud on ChatGPT, Claude,
+Yappable is a Chrome extension that reads finished AI chat replies aloud on ChatGPT, Claude,
 Gemini and Grok.
 
 ## Information Yappable Processes

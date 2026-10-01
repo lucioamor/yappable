@@ -41,7 +41,7 @@ mudaram demais desde então (1.0.0 e split da 1.3.0).
   usam a mesma fonte).
 - Controles de privacidade no popup: desligar histórico, limpar cache.
 
-## Atenção específica ao `yappable-for-your-ai`
+## Atenção específica ao `yappable`
 
 - O player atual (`src/media-hook.js`, `src/player-ui.js`) oferece **pause, seek e
   velocidade com pitch preservado** a partir de um blob WAV. Streaming via

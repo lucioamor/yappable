@@ -2,7 +2,7 @@
 /**
  * npm run package
  * Zips only the files needed by the Chrome Web Store.
- * Output: yappable-for-your-ai-<version>.zip (repo root)
+ * Output: yappable-<version>.zip (repo root)
  */
 
 const { execSync } = require("child_process");
@@ -12,7 +12,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 const version = manifest.version;
-const outFile = path.join(root, `yappable-for-your-ai-${version}.zip`);
+const outFile = path.join(root, `yappable-${version}.zip`);
 
 const include = [
   "manifest.json",
