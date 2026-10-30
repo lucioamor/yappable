@@ -1,16 +1,20 @@
 # Yappable: Privacy Policy
 
-Last updated: 2026-09-30
+Last updated: 2026-10-23
 
 Yappable is a Chrome extension that reads finished AI chat replies aloud on ChatGPT, Claude,
-Gemini and Grok.
+Gemini and Grok, and reads pages explicitly opened through its context menu or popup.
 
 ## Information Yappable Processes
 
 On `https://chatgpt.com/*`, `https://chat.openai.com/*`, `https://claude.ai/*`, `https://gemini.google.com/*`
 and `https://grok.com/*`, Yappable reads the text of the **assistant's latest reply** once it has finished,
 so it can read it aloud. It does not read your prompts, your conversation list or your account details,
-and it does not store reply text.
+except when you explicitly request reading a page; optional narration history can store spoken text.
+
+Page reading uses temporary activeTab access and local DOM extraction. Only loaded
+content is available. It removes images and URL targets without calling a language
+model. Autoplay applies after explicitly opening the reader, not to general browsing.
 
 Yappable stores in Chrome extension storage: your settings (engine, language, voices, per-site switches,
 intro style, voice mode, player speed), local daily counters (words, minutes, replies), an optional ElevenLabs
@@ -44,7 +48,7 @@ single items, or clear everything in Settings. Removing the extension deletes it
 ElevenLabs access is an optional browser permission (`api.elevenlabs.io`). Yappable asks for it only when you
 turn ElevenLabs on, and nothing is sent to ElevenLabs until you grant it.
 
-If you add an ElevenLabs API key and select ElevenLabs as the voice engine, Yappable sends the reply text as it
+If you add an ElevenLabs API key and select ElevenLabs as the voice engine, Yappable sends the reply or article text as it
 will be spoken, plus voice settings, to ElevenLabs to generate audio. Your key is stored in `chrome.storage.local`
 and is sent to ElevenLabs only for API authentication.
 
@@ -57,7 +61,7 @@ Yappable uses `rel="noopener noreferrer"` and does not store click history.
 ## What Yappable Does Not Do
 
 Yappable does not collect analytics, sell data, run ad networks, retarget users, broker data, determine
-credit-worthiness, or track browsing outside the chat sites listed above.
+credit-worthiness, or track general browsing. Page access occurs only when requested.
 
 ## Data Sharing
 
@@ -71,5 +75,5 @@ or clearing its stored data in Chrome.
 
 ## Limited Use
 
-Yappable uses information only to provide its single purpose: reading AI chat replies aloud. Its use of information
+Yappable uses information only to provide its single purpose: reading selected replies and pages aloud. Its use of information
 complies with the Chrome Web Store User Data Policy, including the Limited Use requirements.

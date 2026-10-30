@@ -15,6 +15,51 @@ if (typeof importScripts === "function") importScripts("audio-store.js");
 // yappable-for-lovable's background.
 const L = { ok() {}, info() {}, fallback() {}, fail() {} };
 
+// activeTab grants access only after a context-menu or popup gesture.
+async function openPageReader(tabId) {
+  if (!Number.isInteger(tabId)) throw new Error("No active tab was found. Select the original article tab and try again.");
+  const tab = await chrome.tabs.get(tabId);
+  if (tab.url && !/^https?:\/\//i.test(tab.url)) {
+    throw new Error("This is a browser-internal or unsupported page. Yappable cannot read Chrome's Reading mode panel. Return to the original article and choose Yappable — Read page.");
+  }
+  await chrome.scripting.executeScript({ target: { tabId }, files: [
+    "src/vendor/Readability.js", "src/page-extractor.js", "src/audio-store.js",
+    "src/eleven-stream.js", "src/player-ui.js", "src/chat-narrator.js", "src/page-reader.js"
+  ] });
+  const result = await chrome.tabs.sendMessage(tabId, { type: "YAP_OPEN_PAGE" });
+  if (typeof result?.ok !== "boolean") {
+    throw new Error("The page reader did not respond. Reload the original article and try again. If Chrome's Reading mode is open, return to the original page first.");
+  }
+  return result;
+}
+function pageReadFailure(error) {
+  return { ok: false, error: `Could not open the page reader. ${error?.message || "Unknown browser error."}` };
+}
+if (chrome.contextMenus) {
+  chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.removeAll(() => chrome.contextMenus.create({
+      id: "yap-read-page", title: "Yappable — Read page", contexts: ["page", "selection", "link"],
+      documentUrlPatterns: ["http://*/*", "https://*/*"]
+    }));
+  });
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "yap-read-page" && tab?.id) {
+      openPageReader(tab.id).then(result => {
+        if (!result.ok) throw new Error(result.error || "No readable text found.");
+        chrome.action.setBadgeText({ tabId: tab.id, text: "" });
+      }).catch(error => {
+        chrome.action.setBadgeText({ tabId: tab.id, text: "!" });
+        chrome.action.setTitle({ tabId: tab.id, title: pageReadFailure(error).error });
+      });
+    }
+  });
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message?.type !== "YAP_READ_TAB" || sender.id !== chrome.runtime.id || sender.tab) return;
+    openPageReader(message.tabId).then(respond, error => respond(pageReadFailure(error)));
+    return true;
+  });
+}
+
 // ============================================================================
 // Language seeding
 // ============================================================================

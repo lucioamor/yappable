@@ -124,6 +124,7 @@
   }
 
   HTMLMediaElement.prototype.play = function (...args) {
+    if (this.dataset && this.dataset.yapNarration) return origPlay.apply(this, args);
     if (this instanceof HTMLAudioElement) { adopt(this); userStopped = false; }
     return origPlay.apply(this, args);
   };

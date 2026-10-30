@@ -20,11 +20,23 @@
 // ============================================================================
 (() => {
   "use strict";
+  if (globalThis.YapPlayer) return;
 
   const SEEK_S = 15;
   const RATE_STEP = 0.25;
   const RATE_MIN = 0.5;
   const RATE_MAX = 3;
+
+  // Both waveforms identify the page that owns the audio, independently of voice engine.
+  const WAVE_COLORS = {
+    "chatgpt.com": "#10a37f",
+    "chat.openai.com": "#10a37f",
+    "claude.ai": "#e87941",
+    "gemini.google.com": "#4285f4",
+    "grok.com": "#d4af37"
+  };
+  // Substack (including custom domains) and other page readings use Yappable pink.
+  const waveColor = WAVE_COLORS[location.hostname] || "#e0457b";
 
   const NAMES = { chatgpt: "ChatGPT", claude: "Claude", gemini: "Gemini", grok: "Grok" };
   const nm = (p) => NAMES[p] || p;
@@ -40,6 +52,8 @@
   let queue = { others: [], next: [] }; // pushed by chat-narrator from background.js
   let onPlayback = null; // (state: "idle"|"paused"|"playing") -> void
   let onPlayNext = null; // ask the coordinator to start the queue
+  let reading = null;
+  let status = "";
   let lastSession = "idle";
 
   const clampRate = (r) => Math.round(Math.min(RATE_MAX, Math.max(RATE_MIN, r)) * 100) / 100;
@@ -117,14 +131,16 @@
       const s = cur();
       if (s && s.state().active) s.toggle();
       else if (queue.next.length && onPlayNext) onPlayNext();
+      else if (reading) reading.play();
     },
     back: () => { const s = cur(); if (s && s.state().active) s.seek(-SEEK_S); },
     fwd: () => { const s = cur(); if (s && s.state().active) s.seek(SEEK_S); },
     playnext: () => { if (onPlayNext) onPlayNext(); },
+    read: () => { if (reading) reading.play(); },
     slower: () => setRate(rate - RATE_STEP),
     faster: () => setRate(rate + RATE_STEP),
     normal: () => setRate(1),
-    stop: () => { const s = cur(); if (s) s.stop(); }
+    stop: () => { globalThis.YapNarrator?.cancel(); const s = cur(); if (s) s.stop(); }
   };
 
   // ---- keyboard ---------------------------------------------------------------
@@ -153,6 +169,7 @@
 
   const CSS = `
     :host { all: initial; }
+    [hidden] { display: none !important; }
     .card { --bg:#ffffff; --fg:#1f1f1f; --mut:#6b6b6b; --line:#e3e3e3; --acc:#e0457b; --btn:#f3f3f3;
       position: fixed; right: 16px; bottom: 96px; z-index: 2147483646; width: 272px;
       background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 14px;
@@ -166,7 +183,7 @@
     .title { font-weight: 600; font-size: 12px; letter-spacing: .02em; }
     .brand { display:inline-flex; align-items:center; gap:7px; }
     .wave { display:inline-flex; align-items:center; gap:2px; height:16px; }
-    .wave i { width:2px; height:5px; border-radius:2px; background:var(--acc); animation:yapwave .72s ease-in-out infinite alternate; }
+    .wave i { width:2px; height:5px; border-radius:2px; background:var(--yap-wave-color); animation:yapwave .72s ease-in-out infinite alternate; }
     .wave i:nth-child(2) { animation-delay:-.24s; }
     .wave i:nth-child(3) { animation-delay:-.48s; }
     .wave i:nth-child(4) { animation-delay:-.12s; }
@@ -176,7 +193,7 @@
       display:flex; align-items:center; justify-content:space-around; gap:5px; padding:0 12px;
       pointer-events:none; background:linear-gradient(to bottom,rgba(17,17,27,.88),transparent); }
     .screenwave i { flex:1; max-width:7px; min-width:2px; height:4px; border-radius:3px;
-      background:rgba(224,69,123,.82); animation:yapscreen .75s ease-in-out infinite alternate; }
+      background:var(--yap-wave-color); opacity:.82; animation:yapscreen .75s ease-in-out infinite alternate; }
     .screenwave i:nth-child(3n) { animation-delay:-.25s; }
     .screenwave i:nth-child(4n) { animation-delay:-.5s; }
     .screenwave i:nth-child(5n) { animation-duration:.58s; }
@@ -200,6 +217,9 @@
     .bar { height: 3px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
     .bar i { display: block; height: 100%; width: 0; background: var(--acc); }
     .idle { color: var(--mut); font-size: 12px; text-align: center; padding: 6px 0 2px; }
+    .language { display: block; margin-top: 8px; color: var(--mut); font-size: 12px; }
+    .language select { display: block; width: 100%; margin-top: 4px; padding: 5px;
+      background: var(--btn); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; font: inherit; }
     .playnext { display: block; margin: 6px auto 0; border: 0; background: var(--acc); color: #fff; font: inherit;
       font-size: 12px; border-radius: 8px; padding: 5px 12px; cursor: pointer; }
     .queue { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--mut); font-size: 11.5px; line-height: 1.5; }
@@ -213,6 +233,7 @@
   function build() {
     host = document.createElement("div");
     host.id = "yappable-player";
+    host.style.setProperty("--yap-wave-color", waveColor);
     const root = host.attachShadow({ mode: "open" });
     root.innerHTML = `<style>${CSS}</style>
       <div class="screenwave" aria-label="Yappable audio waveform">${"<i></i>".repeat(36)}</div>
@@ -244,6 +265,14 @@
           </div>
         </div>
         <div class="idle">Waiting for the next reply…</div>
+        <label class="language" hidden>Reading language <select aria-label="Reading language">
+          <option value="">Automatic (voice provider)</option>
+          <option value="en">English</option><option value="pt">Português</option>
+          <option value="es">Español</option><option value="fr">Français</option>
+          <option value="de">Deutsch</option><option value="it">Italiano</option>
+        </select></label>
+        <button class="playnext" data-a="read" hidden>▶ Read aloud</button>
+        <button class="playnext" data-a="stop" id="cancel-reading" hidden>Cancel reading</button>
         <button class="playnext" data-a="playnext" hidden title="Start the next reading in the queue (Alt+K)">▶ Play next</button>
         <div class="queue" hidden></div>
       </div>`;
@@ -253,7 +282,9 @@
       main: $('[data-a="toggle"]'), time: $(".time"), rate: $(".spd b"), bar: $(".bar i"),
       seek: [$('[data-a="back"]'), $('[data-a="fwd"]')],
       wave: $(".wave"),
-      playnext: $(".playnext"),
+      playnext: $('[data-a="playnext"]'),
+      read: $('[data-a="read"]'), cancel: $("#cancel-reading"),
+      language: $(".language"), languageSelect: $(".language select"),
       queue: $(".queue"),
       screenwave: $(".screenwave"),
       modes: [...root.querySelectorAll("[data-mode]")]
@@ -266,18 +297,45 @@
       else if (b.classList.contains("x")) { dismissed = true; render(); }
       else if (b.classList.contains("fab")) { dismissed = false; render(); }
     });
+    ui.languageSelect.addEventListener("change", () => {
+      if (!reading?.setLanguage) return;
+      reading.language = ui.languageSelect.value;
+      reading.setLanguage(reading.language);
+    });
     (document.body || document.documentElement).appendChild(host);
   }
 
   function render() {
     if (!document.body) return;
     if (!host || !host.isConnected) build();
-    const st = curState();
+    const st = { ...curState() };
+    const progress = globalThis.YapNarrator?.progress();
+    if (progress && st.active) {
+      const fraction = st.dur ? Math.min(1, (st.t || 0) / st.dur) : 0;
+      st.t = progress.completed + fraction * progress.blockDuration;
+      st.dur = progress.total;
+      st.estimated = true;
+    }
     const s = cur();
     ui.card.hidden = dismissed;
     ui.fab.hidden = !dismissed;
     ui.live.hidden = !st.active;
     ui.idle.hidden = !!st.active;
+    ui.idle.textContent = status || (reading ? reading.label : "Waiting for the next reply…");
+    const preparing = status === "Preparing reading…";
+    ui.language.hidden = !reading?.setLanguage;
+    ui.languageSelect.disabled = !!st.active || preparing;
+    if (reading?.setLanguage) {
+      const lang = reading.language || "";
+      if (![...ui.languageSelect.options].some(o => o.value === lang)) {
+        const option = document.createElement("option");
+        option.value = option.textContent = lang;
+        ui.languageSelect.append(option);
+      }
+      ui.languageSelect.value = lang;
+    }
+    ui.read.hidden = !!st.active || !reading || preparing;
+    ui.cancel.hidden = !preparing;
     ui.main.textContent = st.paused ? "▶" : "⏸";
     // Animate only while sound is really coming out (not paused, buffering or
     // waiting on a dead element); otherwise the bars freeze, dimmed.
@@ -290,7 +348,7 @@
     notifySession(st);
     const seekable = !!(s && st.seekable !== false && st.dur);
     ui.seek.forEach((b) => { b.disabled = !seekable; });
-    ui.time.textContent = `${fmt(st.t)} / ${fmt(st.dur)}`;
+    ui.time.textContent = `${fmt(st.t)} / ${st.estimated ? "~" : ""}${fmt(st.dur)}`;
     ui.bar.style.width = st.dur ? `${Math.min(100, (st.t / st.dur) * 100)}%` : "0";
     ui.rate.textContent = `${rate.toFixed(2)}×`;
     ui.modes.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
@@ -344,6 +402,8 @@
   };
 
   globalThis.YapPlayer = {
+    setReading: (value) => { reading = value; status = ""; dismissed = false; render(); },
+    setStatus: (value) => { status = value; render(); },
     register,
     activate,
     stopAll,

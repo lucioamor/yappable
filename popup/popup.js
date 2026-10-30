@@ -774,3 +774,21 @@ $("testNative").addEventListener("click", testNative);
 window.addEventListener("unload", stopAll);
 
 load();
+
+const pageControls = document.createElement("div");
+pageControls.className = "cfg-body";
+pageControls.innerHTML = '<div class="btnrow"><button class="act primary" id="readPage" type="button">Read this page</button></div><label><input id="pageAutoplay" type="checkbox"> Autoplay when opening page reader</label><p id="pageReadStatus" role="status"></p>';
+document.body.prepend(pageControls);
+chrome.storage.sync.get({ pageAutoplay: false }, (st) => { $("pageAutoplay").checked = st.pageAutoplay; });
+$("pageAutoplay").addEventListener("change", () => chrome.storage.sync.set({ pageAutoplay: $("pageAutoplay").checked }));
+$("readPage").addEventListener("click", async () => {
+  $("readPage").disabled = true;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error("No active tab found. Select the original article and try again.");
+    const result = await chrome.runtime.sendMessage({ type: "YAP_READ_TAB", tabId: tab.id });
+    if (!result?.ok) throw new Error(result?.error || "Yappable did not return a reader response. Reload the extension and the original article, then try again outside Chrome's Reading mode.");
+    window.close();
+  } catch (error) { $("pageReadStatus").textContent = error.message; }
+  finally { $("readPage").disabled = false; }
+});
