@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.1.4] - 2026-10-23
+
+- Add experimental Claude/Gemini page voices through an existing signed-in tab
+  with a completed reply. Reuse site-managed authentication without copying tokens.
+- Confirm that the outgoing TTS text was replaced; report incompatible/cached
+  speech requests. Playback controls live in the foregrounded provider tab.
+- Route through the shared audio queue, preserve plain page text, and pass the
+  language override to Gemini. No model-generated response or ElevenLabs fallback.
+- Local relay validation only; live provider acceptance and article-size limits
+  remain unverified. Extension rejects inputs above 100,000 characters explicitly.
+
+## [1.1.3] - 2026-10-23
+
+- Preserve page headings, bold text, line breaks and paragraphs in a deterministic
+  speech plan. Add model-compatible pause cues and short bold emphasis; native
+  speech uses slower heading/emphasis delivery and timed pauses.
+- Show the article language with a manual override. Prefer article/page metadata;
+  do not treat browser UI language as the article language. Send explicit language
+  to compatible ElevenLabs models, or leave it automatic when metadata is missing.
+- Keep speech markup out of native fallback and history text. Cache keys include
+  the formatted synthesis text and language so older flat audio is not reused.
+
+## [1.1.2] - 2026-10-23
+
+- Explain unsupported internal pages and missing reader responses; preserve browser
+  errors in the popup and context-menu failure tooltip. Read from the original
+  article, not Chrome's built-in Reading mode interface.
+
+## [1.1.1] - 2026-10-23
+
+- Color both player waveforms by source: ChatGPT green, Claude orange, Gemini
+  blue, Grok gold, and Substack/other pages pink, for both site and Yappable voices.
+
+## [1.1.0] - 2026-10-23
+
+- Read pages from the context menu or popup with local Readability extraction,
+  optional autoplay, streaming speech blocks and estimated total progress.
+- Read an existing latest chat reply directly from the floating player.
+- Honor hidden player elements and keep Yappable audio out of the site bridge.
+- Add activeTab, scripting and contextMenus permissions for explicit page reads.
+
 All notable changes to **Yappable** are documented here.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).

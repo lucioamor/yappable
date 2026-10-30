@@ -11,3 +11,4 @@ PLAN.md
 
 # Build output (npm run package)
 *.zip
+node_modules/

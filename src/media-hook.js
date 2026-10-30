@@ -124,6 +124,7 @@
   }
 
   HTMLMediaElement.prototype.play = function (...args) {
+    if (this.dataset && this.dataset.yapNarration) return origPlay.apply(this, args);
     if (this instanceof HTMLAudioElement) { adopt(this); userStopped = false; }
     return origPlay.apply(this, args);
   };
@@ -296,6 +297,8 @@
     if (tts.override == null || Date.now() - tts.at > OVERRIDE_TTL_MS) { tts.override = null; return null; }
     const o = { text: tts.override, lang: tts.lang };
     tts.override = null;
+    if (tts.requestId) window.postMessage({ "yap-tts-applied": tts.requestId }, location.origin);
+    tts.requestId = null;
     return o;
   }
   const withPrefix = (text) => (tts.prefix ? `${tts.prefix} ${text}` : text);
@@ -368,6 +371,7 @@
     }
     if (cmd === "tts" && value && typeof value === "object") {
       if (typeof value.prefix === "string") tts.prefix = value.prefix.trim();
+      tts.requestId = typeof value.requestId === "string" ? value.requestId : null;
       if (typeof value.override === "string" && value.override.trim()) {
         tts.override = value.override.trim();
         tts.lang = typeof value.lang === "string" ? value.lang : "";

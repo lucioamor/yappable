@@ -22,10 +22,12 @@
 // ============================================================================
 (() => {
   "use strict";
+  if (globalThis.YapNarrator) return;
 
   const Chat = globalThis.YapChat;
   const Player = globalThis.YapPlayer;
-  const adapter = Chat && Chat.detect();
+  const chatAdapter = Chat && Chat.detect();
+  const adapter = chatAdapter || { id: "page", name: "Page" };
   if (!adapter || !Player) return;
 
   const DEFAULTS = {
@@ -102,14 +104,16 @@
   const sendTts = (value) => window.postMessage({ "yap-ctl": true, cmd: "tts", value }, location.origin);
   const syncPrefix = () => { if (adapter.rewritable) sendTts({ prefix: prefixFor(cfg.lang) }); };
 
-  chrome.storage.sync.get(DEFAULTS, (stored) => {
+  const settingsReady = new Promise((resolve) => chrome.storage.sync.get(DEFAULTS, (stored) => {
     cfg = { ...cfg, ...stored, lang: resolveLang(stored.lang) };
     Player.setMode(cfg.chatVoiceMode);
     syncPrefix();
-  });
-  chrome.storage.local.get({ elevenKey: "", auth: null }, (local) => {
+    resolve();
+  }));
+  const keyReady = new Promise((resolve) => chrome.storage.local.get({ elevenKey: "", auth: null }, (local) => {
     cfg.elevenKey = elevenKeyFrom(local);
-  });
+    resolve();
+  }));
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local") {
       if (changes.auth || changes.elevenKey) {
@@ -127,7 +131,7 @@
     if (changes.chatVoiceMode) Player.setMode(cfg.chatVoiceMode);
     if (changes.lang || changes.chatAnnouncementStyle) syncPrefix();
     // Turning narration off must silence every source, including the site's own voice.
-    if (!active()) Player.stopAll();
+    if (!active()) { globalThis.YapNarrator?.cancel(); Player.stopAll(); }
   });
   Player.onModeChange((m) => {
     cfg.chatVoiceMode = m;
@@ -251,6 +255,7 @@
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.type === "LN_STOP_NOW") {
+      globalThis.YapNarrator?.cancel();
       audioQueue.cancelAll();
       Player.stopAll();
     }
@@ -315,7 +320,7 @@
       buf += p;
     }
     if (buf.trim()) out.push(buf.trim());
-    return out;
+    return out.flatMap((chunk) => chunk.match(/[\s\S]{1,220}(?:\s|$)|[\s\S]{1,220}/g) || []);
   };
 
   const own = (() => {
@@ -323,6 +328,8 @@
     let audio = null; // ElevenLabs playback
     let nat = null; // { chunks, starts, total, idx, paused, restart, lang, charInChunk }
     let fetchCtrl = null;
+    let activeStream = null;
+    let estimatedDuration = 0;
     // speechSynthesis is shared by the whole browser: a cancel() from an idle tab
     // would silence a voice speaking in ANOTHER tab. Only cancel while this tab
     // has an utterance of its own in flight.
@@ -344,9 +351,11 @@
 
     function stop() {
       epoch++;
+      if (activeStream) { activeStream.cancel(); activeStream = null; }
       cancelSpeech();
       if (audio) { try { audio.pause(); } catch (_) {} audio = null; }
       if (fetchCtrl) { try { fetchCtrl.abort(); } catch (_) {} fetchCtrl = null; }
+      if (nat) nat.resolve?.();
       nat = null;
       Player.render();
     }
@@ -356,7 +365,7 @@
       return new Promise((resolve) => {
         const u = new SpeechSynthesisUtterance(nat.chunks[i]);
         u.lang = nat.lang;
-        u.rate = Math.min(10, cfg.rate * Player.rate());
+        u.rate = Math.min(10, cfg.rate * Player.rate() * (nat.units?.[i]?.rateScale || 1));
         u.pitch = cfg.pitch;
         u.volume = cfg.volume;
         const v = pickVoice(nat.lang);
@@ -365,7 +374,9 @@
         u.onboundary = (e) => { if (my === epoch && nat) nat.charInChunk = e.charIndex || 0; };
         let settled = false;
         const finish = () => { if (settled) return; settled = true; inFlight = Math.max(0, inFlight - 1); resolve(); };
-        u.onend = u.onerror = finish;
+        const pauseMs = nat.units?.[i]?.pauseMs || 0;
+        u.onend = () => pauseMs ? setTimeout(finish, pauseMs) : finish();
+        u.onerror = finish;
         inFlight++;
         speechSynthesis.speak(u);
       });
@@ -382,7 +393,7 @@
         if (nat.paused) return;
         nat.idx++;
       }
-      if (my === epoch && nat) { nat = null; Player.render(); }
+      if (my === epoch && nat) { nat.resolve?.(); nat = null; Player.render(); }
     }
 
     function restartNative() {
@@ -390,19 +401,22 @@
       cancelSpeech(); // current chunk resolves; loop replays nat.idx
     }
 
-    async function playNative(text, lang, my) {
-      const chunks = chunksOf(text);
+    async function playNative(text, lang, my, units) {
+      const chunks = units?.length ? units.map(u => u.text) : chunksOf(text);
       const starts = [];
       let acc = 0;
       for (const c of chunks) { starts.push(acc); acc += c.length + 1; }
       cancelSpeech();
-      nat = { chunks, starts, total: acc, idx: 0, paused: false, restart: false, lang, charInChunk: 0 };
+      nat = { chunks, units, starts, total: acc, idx: 0, paused: false, restart: false, lang, charInChunk: 0 };
       Player.activate("own");
-      await runNative(my);
+      await new Promise(resolve => {
+        nat.resolve = resolve;
+        runNative(my);
+      });
     }
 
     // ---- ElevenLabs: generate before queue grant, play only after grant ---------
-    async function fetchEleven(text, lang) {
+    async function fetchEleven(text, lang, plainText = text) {
       const body = {
         text,
         model_id: cfg.elevenModel,
@@ -419,7 +433,7 @@
       if (cfg.elevenModel === "eleven_flash_v2_5" && body.apply_text_normalization === "on") {
         body.apply_text_normalization = "auto";
       }
-      if (LANG_MODELS.test(cfg.elevenModel)) body.language_code = lang.split("-")[0];
+      if (lang && LANG_MODELS.test(cfg.elevenModel)) body.language_code = lang.split("-")[0].toLowerCase();
       const voiceId = voiceForPlatform();
       const Store = globalThis.YapAudioStore;
       let cacheKey = "";
@@ -441,7 +455,7 @@
           chrome.runtime.sendMessage({
             type: "YAP_CACHE_PUT", key: cacheKey, b64: Store.bufToB64(buf),
             meta: {
-              text, voiceId, model: cfg.elevenModel, format: cfg.elevenOutputFormat,
+              text: plainText, voiceId, model: cfg.elevenModel, format: cfg.elevenOutputFormat,
               platform: adapter.id, pageUrl: location.origin + location.pathname
             }
           }).catch(() => {});
@@ -489,6 +503,7 @@
       try {
         await new Promise((resolve, reject) => {
           const a = new Audio(url);
+          a.dataset.yapNarration = "1";
           audio = a;
           a.volume = cfg.volume;
           a.preservesPitch = true;
@@ -505,20 +520,24 @@
       }
     }
 
-    async function prepare(text, lang) {
+    async function prepare(text, lang, delivery) {
       let elevenBuffer = null;
       if (cfg.engine === "elevenlabs" && cfg.elevenKey) {
-        try { elevenBuffer = await fetchEleven(text, lang); }
+        try { elevenBuffer = await fetchEleven(delivery?.elevenText || text, lang, text); }
         catch (_) { elevenBuffer = null; } // fall through to the system voice
       }
-      return async () => {
+      const play = async () => {
         stop();
         const my = epoch;
+        estimatedDuration = text.trim().split(/\s+/).length / 2.5;
+        activeStream = elevenBuffer && elevenBuffer.stream;
         // A stream that broke before playback started falls back to the system voice.
         const broken = elevenBuffer && elevenBuffer.stream && elevenBuffer.stream.failed;
         if (elevenBuffer && !broken) await playElevenBuffer(elevenBuffer, my);
-        else await playNative(text, lang, my);
+        else await playNative(text, lang || cfg.lang, my, delivery?.nativeUnits);
       };
+      play.dispose = () => elevenBuffer?.stream?.cancel();
+      return play;
     }
 
     async function speak(text, lang) {
@@ -532,14 +551,15 @@
         if (audio) {
           return {
             active: true, playing: !audio.paused && !audio.ended, paused: audio.paused, t: audio.currentTime || 0,
-            dur: Number.isFinite(audio.duration) ? audio.duration : 0, rate: audio.playbackRate
+            dur: Number.isFinite(audio.duration) ? audio.duration : estimatedDuration,
+            estimated: !Number.isFinite(audio.duration), seekable: Number.isFinite(audio.duration), rate: audio.playbackRate
           };
         }
         if (nat) {
           const pos = nat.starts[Math.min(nat.idx, nat.starts.length - 1)] + nat.charInChunk;
           return {
             active: true, playing: !nat.paused, paused: nat.paused, t: pos / CHARS_PER_SEC,
-            dur: nat.total / CHARS_PER_SEC, rate: Player.rate()
+            dur: nat.total / CHARS_PER_SEC, estimated: true, rate: Player.rate()
           };
         }
         return { active: false };
@@ -572,7 +592,7 @@
         if (audio) { audio.defaultPlaybackRate = r; audio.playbackRate = r; return; }
         if (nat && !nat.paused) restartNative(); // next utterance picks up Player.rate()
       },
-      stop
+      stop: () => globalThis.YapNarrator ? globalThis.YapNarrator.cancel() : stop()
     };
     Player.register(src);
     return { prepare, speak, stop };
@@ -587,7 +607,8 @@
       const b = adapter.readAloudButton && adapter.readAloudButton(el);
       if (b) {
         // Only click when it's idle; if it already reads, a click would pause it.
-        if (IDLE_LABEL.test(b.getAttribute("aria-label") || "")) b.click();
+        if (!IDLE_LABEL.test(b.getAttribute("aria-label") || "")) return false;
+        b.click();
         return true;
       }
       await new Promise((r) => setTimeout(r, 200));
@@ -619,7 +640,109 @@
     }
   }
 
-  Chat.watch({
+  let manualEpoch = 0;
+  let pageProgress = null;
+  let externalReading = false;
+  if (chatAdapter && ["claude", "gemini"].includes(adapter.id)) {
+    chrome.runtime.onMessage.addListener((message, sender, respond) => {
+      if (sender.id !== chrome.runtime.id || sender.tab) return false;
+      if (!["YAP_SITE_VOICE_READY", "YAP_SITE_VOICE_READ"].includes(message?.type)) return false;
+      const el = adapter.lastReply();
+      const available = !!el && !adapter.isBusy() && !externalReading && !Player.state("site").active;
+      if (message.type === "YAP_SITE_VOICE_READY") { respond({ ok: available }); return false; }
+      if (!available || typeof message.text !== "string" || !message.text.trim() || message.text.length > 100000) {
+        respond({ ok: false, error: "Voice tab is busy or has no completed reply. Stop playback and try again." });
+        return false;
+      }
+      externalReading = true;
+      (async () => {
+        await settingsReady;
+        if (!cfg.enabled || cfg[`${adapter.id}Enabled`] === false) throw new Error("Enable Yappable and this platform before using the site voice.");
+        const ticket = audioQueue.enqueue();
+        const requestId = crypto.randomUUID();
+        let timer, listener;
+        try {
+          if (!(await ticket.ready())) throw new Error("Reading cancelled.");
+          const applied = new Promise(resolve => {
+            listener = event => {
+              if (event.source === window && event.data?.["yap-tts-applied"] === requestId) resolve(true);
+            };
+            window.addEventListener("message", listener);
+            timer = setTimeout(() => resolve(false), 10000);
+          });
+          sendTts({ prefix: "", override: message.text, lang: message.lang || "", requestId });
+          // Deliver the MAIN-world override before clicking the site's control.
+          await new Promise(resolve => setTimeout(resolve, 0));
+          const clicked = adapter.readAloud ? await adapter.readAloud(el) : await clickSiteReadAloud(el);
+          if (!clicked || !(await applied)) {
+            Player.stopAll();
+            throw new Error("The site did not request compatible speech. Its audio may be cached or its interface changed. Try another completed reply.");
+          }
+          respond({ ok: true });
+          await waitForSitePlayback();
+        } finally {
+          clearTimeout(timer);
+          if (listener) window.removeEventListener("message", listener);
+          sendTts({ prefix: prefixFor(cfg.lang), override: null });
+          ticket.done();
+        }
+      })().catch(error => respond({ ok: false, error: error.message }))
+        .finally(() => { externalReading = false; });
+      return true;
+    });
+  }
+  // Keep total article progress visible across successive synthesis blocks.
+  globalThis.YapNarrator = {
+    async read(text, lang, options = {}) {
+      audioQueue.cancelAll();
+      Player.stopAll();
+      const my = ++manualEpoch;
+      await Promise.all([settingsReady, keyReady]);
+      if (my !== manualEpoch) return;
+      if (!cfg.enabled) { Player.setStatus("Enable Yappable in the extension popup."); return; }
+      const blocks = options.blocks && globalThis.YapPageExtractor
+        ? globalThis.YapPageExtractor.speechChunks(options.blocks, cfg.elevenModel)
+        : (text.match(/[\s\S]{1,1200}(?:\s|$)|[\s\S]{1,1200}/g) || []).map(text => ({ text }));
+      const total = text.trim().split(/\s+/).length / 2.5;
+      let completed = 0;
+      const ticket = audioQueue.enqueue();
+      try {
+        Player.setStatus("Preparing reading…");
+        if (!(await ticket.ready()) || my !== manualEpoch) return;
+        for (const block of blocks) {
+          if (my !== manualEpoch) break;
+          const play = await own.prepare(block.text, options.blocks ? lang : (lang || cfg.lang), block);
+          if (my !== manualEpoch) { play.dispose?.(); break; }
+          pageProgress = { completed, total, blockDuration: block.text.trim().split(/\s+/).length / 2.5 };
+          Player.setStatus("");
+          await play();
+          completed += block.text.trim().split(/\s+/).length / 2.5;
+        }
+      } catch (_) {
+        Player.setStatus("Reading failed. Try Read aloud again.");
+      } finally {
+        if (my === manualEpoch) { pageProgress = null; Player.render(); }
+        ticket.done();
+      }
+    },
+    cancel() { manualEpoch++; pageProgress = null; audioQueue.cancelAll(); own.stop(); Player.setStatus(""); },
+    progress: () => pageProgress
+  };
+  if (chatAdapter) {
+    let lastAvailable = null;
+    setInterval(() => {
+      const el = adapter.lastReply();
+      const available = el && !adapter.isBusy() ? adapter.textOf(el) : "";
+      if (available === lastAvailable) return;
+      lastAvailable = available;
+      Player.setReading(available ? {
+        label: "Latest reply ready to read",
+        play: () => globalThis.YapNarrator.read(available, document.documentElement.lang || cfg.lang)
+      } : null);
+    }, 750);
+  }
+
+  if (chatAdapter) Chat.watch({
     async onComplete(text, _key, el) {
       if (!active()) return;
       const ticket = audioQueue.enqueue();

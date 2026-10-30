@@ -25,7 +25,7 @@ test("manifest is internally consistent", () => {
 });
 
 test("manifest asks only for chat sites, ElevenLabs is optional, with no Lovable or network-rule leftovers", () => {
-  assert.deepEqual(manifest.permissions, ["storage"]);
+  assert.deepEqual(manifest.permissions, ["storage", "activeTab", "scripting", "contextMenus"]);
   assert.ok(manifest.name.length <= 75, "store name over 75 chars");
   assert.ok(manifest.description.length <= 132, "store description over 132 chars");
   const hosts = new Set(manifest.host_permissions.map((h) => h.replace(/^https:\/\/|\/\*$/g, "")));
@@ -130,6 +130,7 @@ test("background seeds defaults and opens onboarding once", () => {
       i18n: { getUILanguage: () => "pt-BR" },
       runtime: {
         getURL: (relative) => `chrome-extension://test/${relative}`,
+        onMessage: { addListener() {} },
         onInstalled: { addListener: (fn) => { onInstalled = fn; } }
       },
       storage: {
@@ -372,6 +373,7 @@ test("popup loads and explicitly saves a local ElevenLabs key", async () => {
     addEventListener(type, fn) { this.listeners[type] = fn; }
     appendChild(child) { this.children.push(child); return child; }
     append(...children) { this.children.push(...children); }
+    prepend(...children) { this.children.unshift(...children); }
     replaceChildren(...children) { this.children = children; }
     setAttribute(name, value) { this[name] = value; }
     querySelectorAll(selector) {
