@@ -607,7 +607,8 @@
       const b = adapter.readAloudButton && adapter.readAloudButton(el);
       if (b) {
         // Only click when it's idle; if it already reads, a click would pause it.
-        if (IDLE_LABEL.test(b.getAttribute("aria-label") || "")) b.click();
+        if (!IDLE_LABEL.test(b.getAttribute("aria-label") || "")) return false;
+        b.click();
         return true;
       }
       await new Promise((r) => setTimeout(r, 200));
